@@ -13,6 +13,22 @@ class VitruvianApp {
     this.targetReps = 0; // Target working reps
     this.workoutHistory = []; // Track completed workouts
     this.currentWorkout = null; // Current workout info
+    this.topPositionsA = []; // Rolling window of top positions for cable A
+    this.bottomPositionsA = []; // Rolling window of bottom positions for cable A
+    this.topPositionsB = []; // Rolling window of top positions for cable B
+    this.bottomPositionsB = []; // Rolling window of bottom positions for cable B
+    this.minRepPosA = null; // Discovered minimum position for cable A (rolling avg)
+    this.maxRepPosA = null; // Discovered maximum position for cable A (rolling avg)
+    this.minRepPosB = null; // Discovered minimum position for cable B (rolling avg)
+    this.maxRepPosB = null; // Discovered maximum position for cable B (rolling avg)
+    this.minRepPosARange = null; // Min/max uncertainty for cable A bottom
+    this.maxRepPosARange = null; // Min/max uncertainty for cable A top
+    this.minRepPosBRange = null; // Min/max uncertainty for cable B bottom
+    this.maxRepPosBRange = null; // Min/max uncertainty for cable B top
+    this.currentSample = null; // Latest monitor sample
+    this.autoStopStartTime = null; // When we entered the auto-stop danger zone
+    this.isJustLiftMode = false; // Flag for Just Lift mode with auto-stop
+    this.lastTopCounter = undefined; // Track u16[1] for top detection
     this.setupLogging();
     this.setupGraph();
     this.resetRepCountersToEmpty();
@@ -130,13 +146,8 @@ class VitruvianApp {
       );
     }
 
-    // Draw X-axis time labels (t-30, t-20, t-10, t-0)
-    const timeLabels = [
-      { label: "t-30", position: 0 },
-      { label: "t-20", position: 0.333 },
-      { label: "t-10", position: 0.667 },
-      { label: "t-0", position: 1 },
-    ];
+    // Draw X-axis time label (t-0)
+    const timeLabels = [{ label: "t-0", position: 1 }];
 
     ctx.fillStyle = "#6c757d";
     ctx.font = "11px -apple-system, sans-serif";
@@ -256,6 +267,9 @@ class VitruvianApp {
   }
 
   updateLiveStats(sample) {
+    // Store current sample for auto-stop checking
+    this.currentSample = sample;
+
     // Update numeric displays
     document.getElementById("loadA").innerHTML =
       `${sample.loadA.toFixed(1)} <span class="stat-unit">kg</span>`;
@@ -283,6 +297,14 @@ class VitruvianApp {
 
     document.getElementById("barA").style.height = heightA + "%";
     document.getElementById("barB").style.height = heightB + "%";
+
+    // Update range indicators
+    this.updateRangeIndicators();
+
+    // Check auto-stop condition for Just Lift mode
+    if (this.isJustLiftMode) {
+      this.checkAutoStop(sample);
+    }
 
     // Add to load history
     this.loadHistory.push({
@@ -317,6 +339,43 @@ class VitruvianApp {
     overlay.classList.remove("show");
   }
 
+  // Toggle Just Lift mode UI
+  toggleJustLiftMode() {
+    const justLiftCheckbox = document.getElementById("justLiftCheckbox");
+    const repsInput = document.getElementById("reps");
+    const modeLabel = document.getElementById("modeLabel");
+
+    if (justLiftCheckbox.checked) {
+      // Just Lift mode enabled - disable reps input
+      repsInput.disabled = true;
+      repsInput.style.opacity = "0.5";
+      modeLabel.textContent = "Base Mode (for resistance profile):";
+    } else {
+      // Regular mode - enable reps input
+      repsInput.disabled = false;
+      repsInput.style.opacity = "1";
+      modeLabel.textContent = "Workout Mode:";
+    }
+  }
+
+  // Toggle Just Lift mode UI for Echo mode
+  toggleEchoJustLiftMode() {
+    const echoJustLiftCheckbox = document.getElementById(
+      "echoJustLiftCheckbox",
+    );
+    const targetRepsInput = document.getElementById("targetReps");
+
+    if (echoJustLiftCheckbox.checked) {
+      // Just Lift mode enabled - disable reps input
+      targetRepsInput.disabled = true;
+      targetRepsInput.style.opacity = "0.5";
+    } else {
+      // Regular mode - enable reps input
+      targetRepsInput.disabled = false;
+      targetRepsInput.style.opacity = "1";
+    }
+  }
+
   updateRepCounters() {
     // Update warmup counter
     const warmupEl = document.getElementById("warmupCounter");
@@ -343,11 +402,145 @@ class VitruvianApp {
     }
   }
 
+  updateRangeIndicators() {
+    // Update range indicators for cable A
+    const rangeMinA = document.getElementById("rangeMinA");
+    const rangeMaxA = document.getElementById("rangeMaxA");
+    const rangeMinB = document.getElementById("rangeMinB");
+    const rangeMaxB = document.getElementById("rangeMaxB");
+    const rangeBandMinA = document.getElementById("rangeBandMinA");
+    const rangeBandMaxA = document.getElementById("rangeBandMaxA");
+    const rangeBandMinB = document.getElementById("rangeBandMinB");
+    const rangeBandMaxB = document.getElementById("rangeBandMaxB");
+
+    // Cable A
+    if (this.minRepPosA !== null && this.maxRepPosA !== null) {
+      // Calculate positions as percentage from bottom
+      const minPctA = Math.min((this.minRepPosA / this.maxPosA) * 100, 100);
+      const maxPctA = Math.min((this.maxRepPosA / this.maxPosA) * 100, 100);
+
+      rangeMinA.style.bottom = minPctA + "%";
+      rangeMaxA.style.bottom = maxPctA + "%";
+      rangeMinA.classList.add("visible");
+      rangeMaxA.classList.add("visible");
+
+      // Update uncertainty bands
+      if (this.minRepPosARange) {
+        const minRangeMinPct = Math.min(
+          (this.minRepPosARange.min / this.maxPosA) * 100,
+          100,
+        );
+        const minRangeMaxPct = Math.min(
+          (this.minRepPosARange.max / this.maxPosA) * 100,
+          100,
+        );
+        const bandHeight = minRangeMaxPct - minRangeMinPct;
+
+        rangeBandMinA.style.bottom = minRangeMinPct + "%";
+        rangeBandMinA.style.height = bandHeight + "%";
+        rangeBandMinA.classList.add("visible");
+      }
+
+      if (this.maxRepPosARange) {
+        const maxRangeMinPct = Math.min(
+          (this.maxRepPosARange.min / this.maxPosA) * 100,
+          100,
+        );
+        const maxRangeMaxPct = Math.min(
+          (this.maxRepPosARange.max / this.maxPosA) * 100,
+          100,
+        );
+        const bandHeight = maxRangeMaxPct - maxRangeMinPct;
+
+        rangeBandMaxA.style.bottom = maxRangeMinPct + "%";
+        rangeBandMaxA.style.height = bandHeight + "%";
+        rangeBandMaxA.classList.add("visible");
+      }
+    } else {
+      rangeMinA.classList.remove("visible");
+      rangeMaxA.classList.remove("visible");
+      rangeBandMinA.classList.remove("visible");
+      rangeBandMaxA.classList.remove("visible");
+    }
+
+    // Cable B
+    if (this.minRepPosB !== null && this.maxRepPosB !== null) {
+      // Calculate positions as percentage from bottom
+      const minPctB = Math.min((this.minRepPosB / this.maxPosB) * 100, 100);
+      const maxPctB = Math.min((this.maxRepPosB / this.maxPosB) * 100, 100);
+
+      rangeMinB.style.bottom = minPctB + "%";
+      rangeMaxB.style.bottom = maxPctB + "%";
+      rangeMinB.classList.add("visible");
+      rangeMaxB.classList.add("visible");
+
+      // Update uncertainty bands
+      if (this.minRepPosBRange) {
+        const minRangeMinPct = Math.min(
+          (this.minRepPosBRange.min / this.maxPosB) * 100,
+          100,
+        );
+        const minRangeMaxPct = Math.min(
+          (this.minRepPosBRange.max / this.maxPosB) * 100,
+          100,
+        );
+        const bandHeight = minRangeMaxPct - minRangeMinPct;
+
+        rangeBandMinB.style.bottom = minRangeMinPct + "%";
+        rangeBandMinB.style.height = bandHeight + "%";
+        rangeBandMinB.classList.add("visible");
+      }
+
+      if (this.maxRepPosBRange) {
+        const maxRangeMinPct = Math.min(
+          (this.maxRepPosBRange.min / this.maxPosB) * 100,
+          100,
+        );
+        const maxRangeMaxPct = Math.min(
+          (this.maxRepPosBRange.max / this.maxPosB) * 100,
+          100,
+        );
+        const bandHeight = maxRangeMaxPct - maxRangeMinPct;
+
+        rangeBandMaxB.style.bottom = maxRangeMinPct + "%";
+        rangeBandMaxB.style.height = bandHeight + "%";
+        rangeBandMaxB.classList.add("visible");
+      }
+    } else {
+      rangeMinB.classList.remove("visible");
+      rangeMaxB.classList.remove("visible");
+      rangeBandMinB.classList.remove("visible");
+      rangeBandMaxB.classList.remove("visible");
+    }
+  }
+
   resetRepCountersToEmpty() {
     this.warmupReps = 0;
     this.workingReps = 0;
     this.currentWorkout = null;
+    this.topPositionsA = [];
+    this.bottomPositionsA = [];
+    this.topPositionsB = [];
+    this.bottomPositionsB = [];
+    this.minRepPosA = null;
+    this.maxRepPosA = null;
+    this.minRepPosB = null;
+    this.maxRepPosB = null;
+    this.minRepPosARange = null;
+    this.maxRepPosARange = null;
+    this.minRepPosBRange = null;
+    this.maxRepPosBRange = null;
+    this.autoStopStartTime = null;
+    this.isJustLiftMode = false;
+    this.lastTopCounter = undefined;
     this.updateRepCounters();
+
+    // Hide auto-stop timer
+    const autoStopTimer = document.getElementById("autoStopTimer");
+    if (autoStopTimer) {
+      autoStopTimer.style.display = "none";
+    }
+    this.updateAutoStopUI(0);
   }
 
   addToWorkoutHistory(workout) {
@@ -398,6 +591,213 @@ class VitruvianApp {
     }
   }
 
+  // Get dynamic window size based on workout phase
+  getWindowSize() {
+    // During warmup: use last 2 samples
+    // During working reps: use last 3 samples
+    const totalReps = this.warmupReps + this.workingReps;
+    return totalReps < this.warmupTarget ? 2 : 3;
+  }
+
+  // Record top position (when u16[0] increments)
+  recordTopPosition(posA, posB) {
+    // Add to rolling window
+    this.topPositionsA.push(posA);
+    this.topPositionsB.push(posB);
+
+    // Keep only last N samples based on workout phase
+    const windowSize = this.getWindowSize();
+    if (this.topPositionsA.length > windowSize) {
+      this.topPositionsA.shift();
+    }
+    if (this.topPositionsB.length > windowSize) {
+      this.topPositionsB.shift();
+    }
+
+    // Update max positions using rolling average
+    this.updateRepRanges();
+  }
+
+  // Record bottom position (when u16[2] increments - rep complete)
+  recordBottomPosition(posA, posB) {
+    // Add to rolling window
+    this.bottomPositionsA.push(posA);
+    this.bottomPositionsB.push(posB);
+
+    // Keep only last N samples based on workout phase
+    const windowSize = this.getWindowSize();
+    if (this.bottomPositionsA.length > windowSize) {
+      this.bottomPositionsA.shift();
+    }
+    if (this.bottomPositionsB.length > windowSize) {
+      this.bottomPositionsB.shift();
+    }
+
+    // Update min positions using rolling average
+    this.updateRepRanges();
+  }
+
+  // Calculate rolling average for an array
+  calculateAverage(arr) {
+    if (arr.length === 0) return null;
+    const sum = arr.reduce((a, b) => a + b, 0);
+    return Math.round(sum / arr.length);
+  }
+
+  // Calculate min/max range for uncertainty band
+  calculateRange(arr) {
+    if (arr.length === 0) return null;
+    return {
+      min: Math.min(...arr),
+      max: Math.max(...arr),
+    };
+  }
+
+  // Update min/max rep ranges from rolling averages
+  updateRepRanges() {
+    const oldMinA = this.minRepPosA;
+    const oldMaxA = this.maxRepPosA;
+    const oldMinB = this.minRepPosB;
+    const oldMaxB = this.maxRepPosB;
+
+    // Calculate averages for each position type
+    this.maxRepPosA = this.calculateAverage(this.topPositionsA);
+    this.minRepPosA = this.calculateAverage(this.bottomPositionsA);
+    this.maxRepPosB = this.calculateAverage(this.topPositionsB);
+    this.minRepPosB = this.calculateAverage(this.bottomPositionsB);
+
+    // Calculate uncertainty ranges
+    this.maxRepPosARange = this.calculateRange(this.topPositionsA);
+    this.minRepPosARange = this.calculateRange(this.bottomPositionsA);
+    this.maxRepPosBRange = this.calculateRange(this.topPositionsB);
+    this.minRepPosBRange = this.calculateRange(this.bottomPositionsB);
+
+    // Log if range changed significantly (> 5 units)
+    const rangeChanged =
+      (oldMinA !== null &&
+        Math.abs(this.minRepPosA - oldMinA) > 5) ||
+      (oldMaxA !== null &&
+        Math.abs(this.maxRepPosA - oldMaxA) > 5) ||
+      (oldMinB !== null &&
+        Math.abs(this.minRepPosB - oldMinB) > 5) ||
+      (oldMaxB !== null &&
+        Math.abs(this.maxRepPosB - oldMaxB) > 5);
+
+    if (rangeChanged || oldMinA === null) {
+      const rangeA =
+        this.maxRepPosA && this.minRepPosA
+          ? this.maxRepPosA - this.minRepPosA
+          : 0;
+      const rangeB =
+        this.maxRepPosB && this.minRepPosB
+          ? this.maxRepPosB - this.minRepPosB
+          : 0;
+
+      this.addLogEntry(
+        `Rep range updated: A[${this.minRepPosA || "?"}-${this.maxRepPosA || "?"}] (${rangeA}), B[${this.minRepPosB || "?"}-${this.maxRepPosB || "?"}] (${rangeB})`,
+        "info",
+      );
+    }
+  }
+
+  // Check if we should auto-stop (for Just Lift mode)
+  checkAutoStop(sample) {
+    // Need at least one cable to have established a range
+    if (!this.minRepPosA && !this.minRepPosB) {
+      this.updateAutoStopUI(0);
+      return;
+    }
+
+    const rangeA = this.maxRepPosA - this.minRepPosA;
+    const rangeB = this.maxRepPosB - this.minRepPosB;
+
+    // Only check cables that have a meaningful range (> 50 units of movement)
+    const minRangeThreshold = 50;
+    const checkCableA = rangeA > minRangeThreshold;
+    const checkCableB = rangeB > minRangeThreshold;
+
+    // If neither cable has moved significantly, can't auto-stop yet
+    if (!checkCableA && !checkCableB) {
+      this.updateAutoStopUI(0);
+      return;
+    }
+
+    let inDangerZone = false;
+
+    // Check cable A if it has meaningful range
+    if (checkCableA) {
+      const thresholdA = this.minRepPosA + rangeA * 0.05;
+      if (sample.posA <= thresholdA) {
+        inDangerZone = true;
+      }
+    }
+
+    // Check cable B if it has meaningful range
+    if (checkCableB) {
+      const thresholdB = this.minRepPosB + rangeB * 0.05;
+      if (sample.posB <= thresholdB) {
+        inDangerZone = true;
+      }
+    }
+
+    if (inDangerZone) {
+      if (this.autoStopStartTime === null) {
+        // Entered danger zone
+        this.autoStopStartTime = Date.now();
+        this.addLogEntry(
+          "Near bottom of range, starting auto-stop timer (5s)...",
+          "info",
+        );
+      }
+
+      // Calculate elapsed time and update UI
+      const elapsed = (Date.now() - this.autoStopStartTime) / 1000;
+      const progress = Math.min(elapsed / 5.0, 1.0); // 0 to 1 over 5 seconds
+      this.updateAutoStopUI(progress);
+
+      if (elapsed >= 5.0) {
+        this.addLogEntry(
+          "Auto-stop triggered! Finishing workout...",
+          "success",
+        );
+        this.stopWorkout();
+      }
+    } else {
+      // Reset timer if we left the danger zone
+      if (this.autoStopStartTime !== null) {
+        this.addLogEntry("Moved out of danger zone, timer reset", "info");
+        this.autoStopStartTime = null;
+      }
+      this.updateAutoStopUI(0);
+    }
+  }
+
+  // Update the auto-stop timer UI
+  updateAutoStopUI(progress) {
+    const progressCircle = document.getElementById("autoStopProgress");
+    const autoStopText = document.getElementById("autoStopText");
+
+    if (!progressCircle || !autoStopText) return;
+
+    // Circle circumference is ~220 (2 * PI * radius where radius = 35)
+    const circumference = 220;
+    const offset = circumference - progress * circumference;
+
+    progressCircle.style.strokeDashoffset = offset;
+
+    // Update text based on progress
+    if (progress > 0) {
+      const timeLeft = Math.ceil((1 - progress) * 5);
+      autoStopText.textContent = `${timeLeft}s`;
+      autoStopText.style.color = "#dc3545";
+      autoStopText.style.fontSize = "1.5em";
+    } else {
+      autoStopText.textContent = "Auto-Stop";
+      autoStopText.style.color = "#6c757d";
+      autoStopText.style.fontSize = "0.75em";
+    }
+  }
+
   handleRepNotification(data) {
     // Parse rep notification
     if (data.length < 6) {
@@ -413,66 +813,119 @@ class VitruvianApp {
       u16Values.push(view.getUint16(i * 2, true));
     }
 
-    // u16[2] is the rep complete counter
-    if (u16Values.length >= 3) {
-      const completeCounter = u16Values[2];
+    if (u16Values.length < 3) {
+      return; // Need at least u16[0], u16[1], u16[2]
+    }
 
-      // Track last counter value to detect increments
-      if (this.lastRepCounter === undefined) {
-        this.lastRepCounter = completeCounter;
-        return;
-      }
+    const topCounter = u16Values[0]; // Reached top of range
+    const completeCounter = u16Values[2]; // Rep complete (bottom)
 
-      // Check if counter incremented
-      let delta = 0;
-      if (completeCounter >= this.lastRepCounter) {
-        delta = completeCounter - this.lastRepCounter;
+    // Log counters for debugging
+    this.addLogEntry(
+      `Rep notification: top=${topCounter}, complete=${completeCounter}, pos=[${this.currentSample?.posA || "?"}, ${this.currentSample?.posB || "?"}]`,
+      "info",
+    );
+
+    // Only process if we have a current sample and active workout
+    if (!this.currentSample || !this.currentWorkout) {
+      return;
+    }
+
+    // Track top of range (u16[1])
+    if (this.lastTopCounter === undefined) {
+      this.lastTopCounter = topCounter;
+    } else {
+      // Check if top counter incremented
+      let topDelta = 0;
+      if (topCounter >= this.lastTopCounter) {
+        topDelta = topCounter - this.lastTopCounter;
       } else {
         // Handle wrap-around
-        delta = 0xffff - this.lastRepCounter + completeCounter + 1;
+        topDelta = 0xffff - this.lastTopCounter + topCounter + 1;
       }
 
-      if (delta > 0) {
-        // Rep completed!
-        const totalReps = this.warmupReps + this.workingReps + 1;
+      if (topDelta > 0) {
+        // Reached top of range!
+        this.addLogEntry(
+          `TOP detected! Counter: ${this.lastTopCounter} -> ${topCounter}, pos=[${this.currentSample.posA}, ${this.currentSample.posB}]`,
+          "success",
+        );
+        this.recordTopPosition(
+          this.currentSample.posA,
+          this.currentSample.posB,
+        );
+        this.lastTopCounter = topCounter;
+      }
+    }
 
-        if (totalReps <= this.warmupTarget) {
-          // Still in warmup
-          this.warmupReps++;
+    // Track rep complete / bottom of range (u16[2])
+    if (this.lastRepCounter === undefined) {
+      this.lastRepCounter = completeCounter;
+      return;
+    }
+
+    // Check if counter incremented
+    let delta = 0;
+    if (completeCounter >= this.lastRepCounter) {
+      delta = completeCounter - this.lastRepCounter;
+    } else {
+      // Handle wrap-around
+      delta = 0xffff - this.lastRepCounter + completeCounter + 1;
+    }
+
+    if (delta > 0) {
+      // Rep completed! Record bottom position
+      this.addLogEntry(
+        `BOTTOM detected! Counter: ${this.lastRepCounter} -> ${completeCounter}, pos=[${this.currentSample.posA}, ${this.currentSample.posB}]`,
+        "success",
+      );
+      this.recordBottomPosition(
+        this.currentSample.posA,
+        this.currentSample.posB,
+      );
+
+      const totalReps = this.warmupReps + this.workingReps + 1;
+
+      if (totalReps <= this.warmupTarget) {
+        // Still in warmup
+        this.warmupReps++;
+        this.addLogEntry(
+          `Warmup rep ${this.warmupReps}/${this.warmupTarget} complete`,
+          "success",
+        );
+      } else {
+        // Working reps
+        this.workingReps++;
+        if (this.targetReps > 0) {
           this.addLogEntry(
-            `Warmup rep ${this.warmupReps}/${this.warmupTarget} complete`,
+            `Working rep ${this.workingReps}/${this.targetReps} complete`,
             "success",
           );
         } else {
-          // Working reps
-          this.workingReps++;
-          if (this.targetReps > 0) {
-            this.addLogEntry(
-              `Working rep ${this.workingReps}/${this.targetReps} complete`,
-              "success",
-            );
-          } else {
-            this.addLogEntry(
-              `Working rep ${this.workingReps} complete`,
-              "success",
-            );
-          }
-
-          // Auto-complete workout when target reps are reached
-          if (this.targetReps > 0 && this.workingReps >= this.targetReps) {
-            this.addLogEntry(
-              "Target reps reached! Auto-completing workout...",
-              "success",
-            );
-            this.completeWorkout();
-          }
+          this.addLogEntry(
+            `Working rep ${this.workingReps} complete`,
+            "success",
+          );
         }
 
-        this.updateRepCounters();
+        // Auto-complete workout when target reps are reached (but not for Just Lift)
+        if (
+          !this.isJustLiftMode &&
+          this.targetReps > 0 &&
+          this.workingReps >= this.targetReps
+        ) {
+          this.addLogEntry(
+            "Target reps reached! Auto-completing workout...",
+            "success",
+          );
+          this.completeWorkout();
+        }
       }
 
-      this.lastRepCounter = completeCounter;
+      this.updateRepCounters();
     }
+
+    this.lastRepCounter = completeCounter;
   }
 
   async connect() {
@@ -526,11 +979,14 @@ class VitruvianApp {
       const modeSelect = document.getElementById("mode");
       const weightInput = document.getElementById("weight");
       const repsInput = document.getElementById("reps");
+      const justLiftCheckbox = document.getElementById("justLiftCheckbox");
+      const progressionInput = document.getElementById("progression");
 
-      const mode = parseInt(modeSelect.value);
+      const baseMode = parseInt(modeSelect.value);
       const perCableKg = parseFloat(weightInput.value);
-      const reps =
-        mode === ProgramMode.JUST_LIFT ? 0 : parseInt(repsInput.value);
+      const isJustLift = justLiftCheckbox.checked;
+      const reps = isJustLift ? 0 : parseInt(repsInput.value);
+      const progressionKg = parseFloat(progressionInput.value);
 
       // Validate inputs
       if (isNaN(perCableKg) || perCableKg < 0 || perCableKg > 100) {
@@ -538,11 +994,13 @@ class VitruvianApp {
         return;
       }
 
-      if (
-        mode !== ProgramMode.JUST_LIFT &&
-        (isNaN(reps) || reps < 1 || reps > 100)
-      ) {
+      if (!isJustLift && (isNaN(reps) || reps < 1 || reps > 100)) {
         alert("Please enter a valid number of reps (1-100)");
+        return;
+      }
+
+      if (isNaN(progressionKg) || progressionKg < -3 || progressionKg > 3) {
+        alert("Please enter a valid progression (-3 to 3 kg)");
         return;
       }
 
@@ -550,27 +1008,41 @@ class VitruvianApp {
       const effectiveKg = perCableKg + 10.0;
 
       const params = {
-        mode: mode,
+        mode: baseMode, // Not used directly, baseMode is used in protocol
+        baseMode: baseMode,
+        isJustLift: isJustLift,
         reps: reps,
         perCableKg: perCableKg,
         effectiveKg: effectiveKg,
+        progressionKg: progressionKg,
         sequenceID: 0x0b,
       };
 
       // Set rep targets before starting
       this.warmupTarget = 3; // Programs always use 3 warmup reps
       this.targetReps = reps;
+      this.isJustLiftMode = isJustLift;
       this.lastRepCounter = undefined;
+      this.lastTopCounter = undefined;
 
       // Reset workout state and set current workout info
       this.warmupReps = 0;
       this.workingReps = 0;
+      const modeName = isJustLift
+        ? `Just Lift (${ProgramModeNames[baseMode]})`
+        : ProgramModeNames[baseMode];
       this.currentWorkout = {
-        mode: ProgramModeNames[mode] || "Program",
+        mode: modeName || "Program",
         weight: perCableKg,
         targetReps: reps,
       };
       this.updateRepCounters();
+
+      // Show auto-stop timer if Just Lift mode
+      const autoStopTimer = document.getElementById("autoStopTimer");
+      if (autoStopTimer) {
+        autoStopTimer.style.display = isJustLift ? "block" : "none";
+      }
 
       await this.device.startProgram(params);
 
@@ -598,19 +1070,23 @@ class VitruvianApp {
       const levelSelect = document.getElementById("echoLevel");
       const eccentricInput = document.getElementById("eccentric");
       const targetInput = document.getElementById("targetReps");
+      const echoJustLiftCheckbox = document.getElementById(
+        "echoJustLiftCheckbox",
+      );
 
       const level = parseInt(levelSelect.value) - 1; // Convert to 0-indexed
       const eccentricPct = parseInt(eccentricInput.value);
       const warmupReps = 3; // Hardcoded warmup reps for Echo mode
-      const targetReps = parseInt(targetInput.value);
+      const isJustLift = echoJustLiftCheckbox.checked;
+      const targetReps = isJustLift ? 0 : parseInt(targetInput.value);
 
       // Validate inputs
-      if (isNaN(eccentricPct) || eccentricPct < 0 || eccentricPct > 200) {
-        alert("Please enter a valid eccentric percentage (0-200)");
+      if (isNaN(eccentricPct) || eccentricPct < 0 || eccentricPct > 150) {
+        alert("Please enter a valid eccentric percentage (0-150)");
         return;
       }
 
-      if (isNaN(targetReps) || targetReps < 0 || targetReps > 30) {
+      if (!isJustLift && (isNaN(targetReps) || targetReps < 0 || targetReps > 30)) {
         alert("Please enter valid target reps (0-30)");
         return;
       }
@@ -620,23 +1096,35 @@ class VitruvianApp {
         eccentricPct: eccentricPct,
         warmupReps: warmupReps,
         targetReps: targetReps,
+        isJustLift: isJustLift,
         sequenceID: 0x01,
       };
 
       // Set rep targets before starting
       this.warmupTarget = 3; // Always 3 for Echo mode
       this.targetReps = targetReps;
+      this.isJustLiftMode = isJustLift;
       this.lastRepCounter = undefined;
+      this.lastTopCounter = undefined;
 
       // Reset workout state and set current workout info
       this.warmupReps = 0;
       this.workingReps = 0;
+      const modeName = isJustLift
+        ? `Just Lift Echo ${EchoLevelNames[level]}`
+        : `Echo ${EchoLevelNames[level]}`;
       this.currentWorkout = {
-        mode: `Echo ${EchoLevelNames[level]}`,
+        mode: modeName,
         weight: 0, // Echo mode doesn't have fixed weight
         targetReps: targetReps,
       };
       this.updateRepCounters();
+
+      // Show auto-stop timer if Just Lift mode
+      const autoStopTimer = document.getElementById("autoStopTimer");
+      if (autoStopTimer) {
+        autoStopTimer.style.display = isJustLift ? "block" : "none";
+      }
 
       await this.device.startEcho(params);
 

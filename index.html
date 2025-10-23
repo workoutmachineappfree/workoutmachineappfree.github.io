@@ -252,6 +252,50 @@
                 border-radius: 6px 6px 0 0;
             }
 
+            .range-line {
+                position: absolute;
+                left: -5px;
+                right: -5px;
+                height: 2px;
+                border-top: 2px dashed #ff6b6b;
+                opacity: 0;
+                transition: opacity 0.3s;
+                pointer-events: none;
+            }
+
+            .range-line.visible {
+                opacity: 0.8;
+            }
+
+            .range-line.min {
+                border-color: #ff6b6b;
+            }
+
+            .range-line.max {
+                border-color: #51cf66;
+            }
+
+            .range-band {
+                position: absolute;
+                left: 0;
+                right: 0;
+                opacity: 0;
+                transition: opacity 0.3s;
+                pointer-events: none;
+            }
+
+            .range-band.visible {
+                opacity: 0.15;
+            }
+
+            .range-band.min {
+                background-color: #ff6b6b;
+            }
+
+            .range-band.max {
+                background-color: #51cf66;
+            }
+
             .bar-value {
                 margin-top: 10px;
                 font-size: 0.9em;
@@ -459,16 +503,15 @@
                         <h2>Program Mode</h2>
 
                         <div class="form-group">
-                            <label for="mode">Workout Mode:</label>
+                            <label for="mode" id="modeLabel"
+                                >Workout Mode:</label
+                            >
                             <select id="mode">
                                 <option value="0">Old School</option>
                                 <option value="1">Pump</option>
                                 <option value="2">TUT</option>
                                 <option value="3">TUT Beast</option>
-                                <option value="4" disabled>
-                                    Just Lift (unsafe - auto-stop not
-                                    implemented)
-                                </option>
+                                <option value="4">Eccentric Only</option>
                             </select>
                         </div>
 
@@ -484,15 +527,76 @@
                             />
                         </div>
 
-                        <div class="form-group" id="repsGroup">
-                            <label for="reps">Number of reps:</label>
+                        <div class="form-group">
+                            <label for="progression"
+                                >Progression/Regression (kg per rep):</label
+                            >
                             <input
                                 type="number"
-                                id="reps"
-                                value="10"
-                                min="1"
-                                max="100"
+                                id="progression"
+                                value="0"
+                                min="-3"
+                                max="3"
+                                step="0.1"
                             />
+                            <div
+                                style="
+                                    font-size: 0.75em;
+                                    color: #6c757d;
+                                    margin-top: 5px;
+                                "
+                            >
+                                +3 to -3
+                            </div>
+                        </div>
+
+                        <div
+                            class="form-group"
+                            style="
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 20px;
+                            "
+                        >
+                            <div>
+                                <label for="reps">Number of reps:</label>
+                                <input
+                                    type="number"
+                                    id="reps"
+                                    value="10"
+                                    min="1"
+                                    max="100"
+                                />
+                            </div>
+                            <div style="align-self: center">
+                                <label
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                        margin-bottom: 5px;
+                                    "
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="justLiftCheckbox"
+                                        onchange="app.toggleJustLiftMode()"
+                                        style="width: auto"
+                                    />
+                                    <span>Just Lift Mode</span>
+                                </label>
+                                <div
+                                    style="
+                                        font-size: 0.75em;
+                                        color: #6c757d;
+                                        margin-top: 0;
+                                        line-height: 1.3;
+                                    "
+                                >
+                                    Unlimited reps with auto-stop after 5s at
+                                    rest
+                                </div>
+                            </div>
                         </div>
 
                         <button onclick="app.startProgram()">
@@ -521,29 +625,68 @@
                                 id="eccentric"
                                 value="100"
                                 min="0"
-                                max="200"
+                                max="150"
                                 step="5"
                             />
-                        </div>
-
-                        <div class="form-group">
-                            <label for="targetReps">Number of Reps:</label>
-                            <input
-                                type="number"
-                                id="targetReps"
-                                value="2"
-                                min="0"
-                                max="30"
-                            />
+                            <div
+                                style="
+                                    font-size: 0.75em;
+                                    color: #6c757d;
+                                    margin-top: 5px;
+                                "
+                            >
+                                Maximum: 150%
+                            </div>
                         </div>
 
                         <div
+                            class="form-group"
                             style="
-                                font-size: 0.85em;
-                                color: #6c757d;
-                                margin-top: 10px;
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 20px;
                             "
-                        ></div>
+                        >
+                            <div>
+                                <label for="targetReps">Number of Reps:</label>
+                                <input
+                                    type="number"
+                                    id="targetReps"
+                                    value="2"
+                                    min="0"
+                                    max="30"
+                                />
+                            </div>
+                            <div style="align-self: center">
+                                <label
+                                    style="
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                        margin-bottom: 5px;
+                                    "
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="echoJustLiftCheckbox"
+                                        onchange="app.toggleEchoJustLiftMode()"
+                                        style="width: auto"
+                                    />
+                                    <span>Just Lift Mode</span>
+                                </label>
+                                <div
+                                    style="
+                                        font-size: 0.75em;
+                                        color: #6c757d;
+                                        margin-top: 0;
+                                        line-height: 1.3;
+                                    "
+                                >
+                                    Unlimited reps with auto-stop after 5s at
+                                    rest
+                                </div>
+                            </div>
+                        </div>
 
                         <button onclick="app.startEcho()">Start Echo</button>
                     </div>
@@ -671,12 +814,94 @@
                         <div class="position-bars">
                             <div class="bar-container">
                                 <div class="bar-label">Left Cable</div>
-                                <div class="bar-wrapper">
+                                <div class="bar-wrapper" id="barWrapperB">
                                     <div class="bar" id="barB"></div>
+                                    <div
+                                        class="range-band min"
+                                        id="rangeBandMinB"
+                                    ></div>
+                                    <div
+                                        class="range-line min"
+                                        id="rangeMinB"
+                                    ></div>
+                                    <div
+                                        class="range-band max"
+                                        id="rangeBandMaxB"
+                                    ></div>
+                                    <div
+                                        class="range-line max"
+                                        id="rangeMaxB"
+                                    ></div>
                                 </div>
                                 <div class="bar-value" id="posBValue">0</div>
                             </div>
-                            <div style="display: flex; align-items: center">
+                            <div
+                                style="
+                                    display: flex;
+                                    flex-direction: column;
+                                    align-items: center;
+                                    gap: 15px;
+                                "
+                            >
+                                <!-- Auto-stop timer (Just Lift mode only) -->
+                                <div
+                                    id="autoStopTimer"
+                                    style="
+                                        display: none;
+                                        text-align: center;
+                                        height: 80px;
+                                    "
+                                >
+                                    <svg
+                                        width="80"
+                                        height="80"
+                                        style="
+                                            transform: rotate(-90deg);
+                                            filter: drop-shadow(
+                                                0 2px 4px rgba(0, 0, 0, 0.1)
+                                            );
+                                        "
+                                    >
+                                        <!-- Background circle -->
+                                        <circle
+                                            cx="40"
+                                            cy="40"
+                                            r="35"
+                                            fill="none"
+                                            stroke="#e9ecef"
+                                            stroke-width="6"
+                                        />
+                                        <!-- Progress circle -->
+                                        <circle
+                                            id="autoStopProgress"
+                                            cx="40"
+                                            cy="40"
+                                            r="35"
+                                            fill="none"
+                                            stroke="#ff6b6b"
+                                            stroke-width="6"
+                                            stroke-dasharray="220"
+                                            stroke-dashoffset="220"
+                                            style="
+                                                transition: stroke-dashoffset
+                                                    0.1s linear;
+                                            "
+                                        />
+                                    </svg>
+                                    <div
+                                        id="autoStopText"
+                                        style="
+                                            margin-top: -54px;
+                                            font-size: 0.75em;
+                                            color: #6c757d;
+                                            font-weight: 600;
+                                            pointer-events: none;
+                                        "
+                                    >
+                                        Auto-Stop
+                                    </div>
+                                </div>
+
                                 <button
                                     onclick="app.stopWorkout()"
                                     style="
@@ -696,8 +921,24 @@
                             </div>
                             <div class="bar-container">
                                 <div class="bar-label">Right Cable</div>
-                                <div class="bar-wrapper">
+                                <div class="bar-wrapper" id="barWrapperA">
                                     <div class="bar" id="barA"></div>
+                                    <div
+                                        class="range-band min"
+                                        id="rangeBandMinA"
+                                    ></div>
+                                    <div
+                                        class="range-line min"
+                                        id="rangeMinA"
+                                    ></div>
+                                    <div
+                                        class="range-band max"
+                                        id="rangeBandMaxA"
+                                    ></div>
+                                    <div
+                                        class="range-line max"
+                                        id="rangeMaxA"
+                                    ></div>
                                 </div>
                                 <div class="bar-value" id="posAValue">0</div>
                             </div>
@@ -794,20 +1035,5 @@
         <script src="protocol.js"></script>
         <script src="device.js"></script>
         <script src="app.js"></script>
-
-        <script>
-            // Hide/show reps input based on mode
-            document
-                .getElementById("mode")
-                .addEventListener("change", function () {
-                    const repsGroup = document.getElementById("repsGroup");
-                    if (this.value === "4") {
-                        // Just Lift mode
-                        repsGroup.classList.add("hidden");
-                    } else {
-                        repsGroup.classList.remove("hidden");
-                    }
-                });
-        </script>
     </body>
 </html>

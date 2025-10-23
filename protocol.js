@@ -59,7 +59,7 @@ function buildProgramParams(params) {
 
   // Reps field at offset 0x04
   // For Just Lift, use 0xFF; for others, use reps+3
-  if (params.mode === ProgramMode.JUST_LIFT) {
+  if (params.isJustLift) {
     frame[0x04] = 0xff;
   } else {
     frame[0x04] = params.reps + 3;
@@ -101,7 +101,9 @@ function buildProgramParams(params) {
   frame[0x2f] = 0x00;
 
   // Get the mode profile block (32 bytes for offsets 0x30-0x4F)
-  const profile = getModeProfile(params.mode);
+  // For Just Lift, use the baseMode; otherwise use the mode directly
+  const profileMode = params.isJustLift ? params.baseMode : params.mode;
+  const profile = getModeProfile(profileMode);
   frame.set(profile, 0x30);
 
   // Effective weight at offset 0x54
@@ -109,6 +111,9 @@ function buildProgramParams(params) {
 
   // Per-cable weight at offset 0x58
   view.setFloat32(0x58, params.perCableKg, true);
+
+  // Progression/Regression at offset 0x5C (kg per rep)
+  view.setFloat32(0x5c, params.progressionKg || 0.0, true);
 
   return frame;
 }
@@ -124,7 +129,13 @@ function buildEchoControl(params) {
 
   // Warmup (0x04) and working reps (0x05)
   frame[0x04] = params.warmupReps || 3;
-  frame[0x05] = params.targetReps || 2;
+
+  // For Just Lift Echo mode, use 0xFF; otherwise use targetReps
+  if (params.isJustLift) {
+    frame[0x05] = 0xff;
+  } else {
+    frame[0x05] = params.targetReps !== undefined ? params.targetReps : 2;
+  }
 
   // Reserved at 0x06-0x07 (u16 = 0)
   view.setUint16(0x06, 0, true);

@@ -4,6 +4,11 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Vitruvian Workout Control</title>
+        <!-- uPlot charting library -->
+        <link
+            rel="stylesheet"
+            href="https://leeoniya.github.io/uPlot/dist/uPlot.min.css"
+        />
         <style>
             * {
                 margin: 0;
@@ -303,13 +308,71 @@
             }
 
             /* Load graph */
-            #loadGraph {
+            #loadGraphContainer {
                 background: #f8f9fa;
                 border-radius: 8px;
                 margin-bottom: 20px;
-                display: block;
+                padding: 15px;
+            }
+
+            /* uPlot customization */
+            .uplot {
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    sans-serif;
+            }
+
+            .u-legend {
+                font-size: 13px;
+            }
+
+            .u-series:hover {
+                cursor: pointer;
+            }
+
+            /* Time range selector */
+            .time-range-selector {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 15px;
+                flex-wrap: wrap;
+                align-items: center;
+            }
+
+            .time-range-selector button {
+                width: auto;
+                padding: 8px 16px;
+                font-size: 13px;
+                margin: 0;
+                flex: 0 0 auto;
+            }
+
+            .time-range-selector button.active {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+            }
+
+            .time-range-selector button:not(.active) {
+                background: white;
+                color: #667eea;
+                border: 2px solid #667eea;
+            }
+
+            .time-range-selector .export-btn {
                 margin-left: auto;
-                margin-right: auto;
+                background: #2b8a3e;
+            }
+
+            .time-range-selector .export-btn:hover {
+                box-shadow: 0 5px 20px rgba(43, 138, 62, 0.4);
+            }
+
+            .data-retention-note {
+                font-size: 0.75em;
+                color: #6c757d;
+                margin-top: -10px;
+                margin-bottom: 10px;
+                font-style: italic;
             }
 
             /* Stats grid */
@@ -398,7 +461,7 @@
             }
 
             /* Desktop: side by side layout for graph and history (2/3 and 1/3) */
-            @media (min-width: 1024px) {
+            @media (min-width: 1280px) {
                 #graphHistoryContainer {
                     grid-template-columns: 2fr 1fr !important;
                 }
@@ -984,7 +1047,51 @@
                                 <h3 style="color: #667eea; margin-bottom: 10px">
                                     Load History
                                 </h3>
-                                <canvas id="loadGraph"></canvas>
+                                <div id="loadGraphContainer">
+                                    <div class="time-range-selector">
+                                        <button
+                                            onclick="app.setTimeRange(10)"
+                                            id="range10s"
+                                        >
+                                            10s
+                                        </button>
+                                        <button
+                                            onclick="app.setTimeRange(30)"
+                                            id="range30s"
+                                            class="active"
+                                        >
+                                            30s
+                                        </button>
+                                        <button
+                                            onclick="app.setTimeRange(60)"
+                                            id="range60s"
+                                        >
+                                            1m
+                                        </button>
+                                        <button
+                                            onclick="app.setTimeRange(120)"
+                                            id="range2m"
+                                        >
+                                            2m
+                                        </button>
+                                        <button
+                                            onclick="app.setTimeRange(null)"
+                                            id="rangeAll"
+                                        >
+                                            All
+                                        </button>
+                                        <button
+                                            onclick="app.exportData()"
+                                            class="export-btn"
+                                        >
+                                            Export CSV
+                                        </button>
+                                    </div>
+                                    <div class="data-retention-note">
+                                        📊 Retains up to 2 hours of data.
+                                    </div>
+                                    <div id="loadGraph"></div>
+                                </div>
                             </div>
 
                             <div>
@@ -1031,9 +1138,11 @@
             </main>
         </div>
 
+        <script src="https://leeoniya.github.io/uPlot/dist/uPlot.iife.js"></script>
         <script src="modes.js"></script>
         <script src="protocol.js"></script>
         <script src="device.js"></script>
+        <script src="chart.js"></script>
         <script src="app.js"></script>
     </body>
 </html>

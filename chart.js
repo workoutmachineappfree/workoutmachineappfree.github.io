@@ -11,6 +11,11 @@ class ChartManager {
     this.onLog = null; // Callback for logging
     this.updateInterval = null; // Interval handle for periodic updates
     this.updateFrequency = 10; // Update chart every 10ms
+    this.loadUnit = {
+      label: "kg",
+      decimals: 1,
+      toDisplay: (value) => value,
+    };
   }
 
   // Initialize uPlot chart
@@ -30,6 +35,8 @@ class ChartManager {
       [], // Left Cable Position (B)
       [], // Right Cable Position (A)
     ];
+
+    const manager = this;
 
     const opts = {
       width: container.clientWidth || 800,
@@ -88,21 +95,21 @@ class ChartManager {
           stroke: "#667eea",
           width: 1.5,
           scale: "load",
-          value: (u, v) => (v == null ? "-" : v.toFixed(1) + " kg"),
+          value: (u, v) => manager.formatLoadValue(v),
         },
         {
           label: "Left Load",
           stroke: "#ff6b6b",
           width: 1.5,
           scale: "load",
-          value: (u, v) => (v == null ? "-" : v.toFixed(1) + " kg"),
+          value: (u, v) => manager.formatLoadValue(v),
         },
         {
           label: "Right Load",
           stroke: "#51cf66",
           width: 1.5,
           scale: "load",
-          value: (u, v) => (v == null ? "-" : v.toFixed(1) + " kg"),
+          value: (u, v) => manager.formatLoadValue(v),
         },
         {
           label: "Left Position",
@@ -148,10 +155,10 @@ class ChartManager {
         },
         {
           scale: "load",
-          label: "Load (kg)",
+          label: `Load (${this.loadUnit.label})`,
           labelSize: 20,
           stroke: "#6c757d",
-          size: 35,
+          size: 40,
           grid: {
             show: true,
             stroke: "#dee2e6",
@@ -167,7 +174,7 @@ class ChartManager {
           label: "Position (cm)",
           labelSize: 20,
           stroke: "#6c757d",
-          size: 35,
+          size: 50,
           side: 1, // 1 = right side
           grid: {
             show: false, // Don't show grid for position to avoid clutter
@@ -255,6 +262,34 @@ class ChartManager {
     this.updateChartData();
   }
 
+  setLoadUnit(config) {
+    if (!config) {
+      return;
+    }
+
+    this.loadUnit = {
+      label: config.label || "kg",
+      decimals: typeof config.decimals === "number" ? config.decimals : 1,
+      toDisplay:
+        typeof config.toDisplay === "function"
+          ? config.toDisplay
+          : (value) => value,
+    };
+
+    if (this.chart && this.chart.axes && this.chart.axes[1]) {
+      this.chart.axes[1].label = `Load (${this.loadUnit.label})`;
+      this.updateChartData();
+    }
+  }
+
+  formatLoadValue(value) {
+    if (value == null || !isFinite(value)) {
+      return "-";
+    }
+
+    return `${value.toFixed(this.loadUnit.decimals)} ${this.loadUnit.label}`;
+  }
+
   // Update chart with all data and trim time scale to current time range.
   updateChartData() {
     // Create fresh arrays each time
@@ -267,9 +302,16 @@ class ChartManager {
 
     for (const point of this.loadHistory) {
       timestamps.push(point.timestamp.getTime() / 1000); // Convert to Unix seconds
-      totalLoads.push(point.loadA + point.loadB);
-      loadsB.push(point.loadB);
-      loadsA.push(point.loadA);
+      const totalKg = point.loadA + point.loadB;
+      const displayTotal = this.loadUnit.toDisplay(totalKg);
+      const displayB = this.loadUnit.toDisplay(point.loadB);
+      const displayA = this.loadUnit.toDisplay(point.loadA);
+
+      totalLoads.push(
+        displayTotal != null && isFinite(displayTotal) ? displayTotal : 0,
+      );
+      loadsB.push(displayB != null && isFinite(displayB) ? displayB : 0);
+      loadsA.push(displayA != null && isFinite(displayA) ? displayA : 0);
       positionsB.push(point.posB);
       positionsA.push(point.posA);
     }
@@ -334,14 +376,24 @@ class ChartManager {
     }
 
     // Build CSV content
-    let csv =
-      "Timestamp,Total Load (kg),Right Load (kg),Left Load (kg),Right Position,Left Position\n";
+    const unitLabel = this.loadUnit.label;
+    const csvDecimals = Math.max(2, this.loadUnit.decimals);
+    const formatCsvValue = (kg) => {
+      const converted = this.loadUnit.toDisplay(kg);
+      if (converted == null || !isFinite(converted)) {
+        return "";
+      }
+      return converted.toFixed(csvDecimals);
+    };
+
+    let csv = `Timestamp,Total Load (${unitLabel}),Right Load (${unitLabel}),Left Load (${unitLabel}),Right Position,Left Position\n`;
 
     for (const point of this.loadHistory) {
       const timestamp = point.timestamp.toISOString();
-      const totalLoad = (point.loadA + point.loadB).toFixed(2);
-      const loadA = point.loadA.toFixed(2);
-      const loadB = point.loadB.toFixed(2);
+      const totalKg = point.loadA + point.loadB;
+      const totalLoad = formatCsvValue(totalKg);
+      const loadA = formatCsvValue(point.loadA);
+      const loadB = formatCsvValue(point.loadB);
       const posA = point.posA;
       const posB = point.posB;
       csv += `${timestamp},${totalLoad},${loadA},${loadB},${posA},${posB}\n`;

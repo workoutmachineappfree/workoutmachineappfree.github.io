@@ -237,14 +237,33 @@ class VitruvianDevice {
     const frame = buildProgramParams(params);
 
     const modeStr = ProgramModeNames[params.mode];
-    if (params.mode === ProgramMode.JUST_LIFT) {
+    const unit = params.displayUnit || "kg";
+    const perCableDisplay =
+      typeof params.perCableDisplay === "number"
+        ? params.perCableDisplay
+        : params.perCableKg;
+    const effectiveDisplay =
+      typeof params.effectiveDisplay === "number"
+        ? params.effectiveDisplay
+        : params.effectiveKg;
+
+    const formattedPerCable =
+      perCableDisplay !== undefined && isFinite(perCableDisplay)
+        ? `${perCableDisplay.toFixed(1)} ${unit}`
+        : `? ${unit}`;
+    const formattedEffective =
+      effectiveDisplay !== undefined && isFinite(effectiveDisplay)
+        ? `${effectiveDisplay.toFixed(1)} ${unit}`
+        : `? ${unit}`;
+
+    if (params.isJustLift) {
       this.log(
-        `\nStarting ${modeStr} mode: ${params.perCableKg}kg per cable (${params.effectiveKg}kg effective)`,
+        `\nStarting ${modeStr} mode: ${formattedPerCable} per cable (${formattedEffective} effective)`,
         "info",
       );
     } else {
       this.log(
-        `\nStarting ${modeStr} mode: ${params.reps} reps, ${params.perCableKg}kg per cable (${params.effectiveKg}kg effective)`,
+        `\nStarting ${modeStr} mode: ${params.reps} reps, ${formattedPerCable} per cable (${formattedEffective} effective)`,
         "info",
       );
     }

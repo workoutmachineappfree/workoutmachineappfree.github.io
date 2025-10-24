@@ -3,8 +3,7 @@
 class VitruvianApp {
   constructor() {
     this.device = new VitruvianDevice();
-    this.loadHistory = [];
-    this.maxHistoryPoints = 300; // 30 seconds at 100ms polling
+    this.chartManager = new ChartManager("loadGraph");
     this.maxPosA = 1000; // Dynamic max for Right Cable (A)
     this.maxPosB = 1000; // Dynamic max for Left Cable (B)
     this.warmupReps = 0;
@@ -30,7 +29,7 @@ class VitruvianApp {
     this.isJustLiftMode = false; // Flag for Just Lift mode with auto-stop
     this.lastTopCounter = undefined; // Track u16[1] for top detection
     this.setupLogging();
-    this.setupGraph();
+    this.setupChart();
     this.resetRepCountersToEmpty();
   }
 
@@ -41,185 +40,12 @@ class VitruvianApp {
     };
   }
 
-  setupGraph() {
-    // Initialize canvas for load graph
-    this.canvas = document.getElementById("loadGraph");
-    if (!this.canvas) {
-      console.warn("Canvas element not found yet, will initialize later");
-      return;
-    }
-
-    // Get parent container width to size canvas responsively
-    const container = this.canvas.parentElement;
-    const rect = container.getBoundingClientRect();
-    const width = Math.max(rect.width, 400); // Min 400px width
-    const height = 300;
-
-    // Apply devicePixelRatio for crisp rendering on high-DPI displays
-    const dpr = window.devicePixelRatio || 1;
-
-    // Set canvas resolution (physical pixels)
-    this.canvas.width = width * dpr;
-    this.canvas.height = height * dpr;
-
-    // Set display size (CSS pixels) to fill container
-    this.canvas.style.width = "100%";
-    this.canvas.style.height = height + "px";
-
-    // Store logical dimensions for drawing
-    this.canvasDisplayWidth = width;
-    this.canvasDisplayHeight = height;
-
-    this.ctx = this.canvas.getContext("2d", { alpha: false });
-
-    // Scale context to match DPI
-    this.ctx.scale(dpr, dpr);
-
-    // Disable smoothing for crisp rendering
-    this.ctx.imageSmoothingEnabled = false;
-
-    this.drawGraph();
-  }
-
-  drawGraph() {
-    if (!this.ctx || !this.canvas) return;
-
-    const width = this.canvasDisplayWidth || this.canvas.width;
-    const height = this.canvasDisplayHeight || this.canvas.height;
-    const ctx = this.ctx;
-
-    if (width === 0 || height === 0) return; // Canvas not sized yet
-
-    // Clear canvas
-    ctx.fillStyle = "#f8f9fa";
-    ctx.fillRect(0, 0, width, height);
-
-    // Set text rendering for crisp fonts
-    ctx.textRendering = "optimizeLegibility";
-
-    if (this.loadHistory.length < 2) {
-      // Not enough data to draw
-      ctx.fillStyle = "#6c757d";
-      ctx.font = "14px -apple-system, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(
-        "Waiting for data...",
-        Math.round(width / 2),
-        Math.round(height / 2),
-      );
-      return;
-    }
-
-    // Find max load for scaling
-    let maxLoad = 0;
-    for (const point of this.loadHistory) {
-      const totalLoad = point.loadA + point.loadB;
-      if (totalLoad > maxLoad) maxLoad = totalLoad;
-    }
-
-    // Add some headroom
-    maxLoad = maxLoad * 1.2 || 10;
-
-    const padding = 40;
-    const graphWidth = width - padding * 2;
-    const graphHeight = height - padding * 2;
-
-    // Draw horizontal grid lines
-    ctx.strokeStyle = "#dee2e6";
-    ctx.lineWidth = 1;
-    for (let i = 0; i <= 5; i++) {
-      const y = Math.round(padding + (graphHeight / 5) * i) + 0.5; // +0.5 for crisp 1px lines
-      ctx.beginPath();
-      ctx.moveTo(padding, y);
-      ctx.lineTo(width - padding, y);
-      ctx.stroke();
-
-      // Draw Y-axis labels (load)
-      const loadValue = maxLoad * (1 - i / 5);
-      ctx.fillStyle = "#6c757d";
-      ctx.font = "11px -apple-system, sans-serif";
-      ctx.textAlign = "right";
-      ctx.fillText(
-        loadValue.toFixed(1) + " kg",
-        padding - 5,
-        Math.round(y + 4),
-      );
-    }
-
-    // Draw X-axis time label (t-0)
-    const timeLabels = [{ label: "t-0", position: 1 }];
-
-    ctx.fillStyle = "#6c757d";
-    ctx.font = "11px -apple-system, sans-serif";
-    ctx.textAlign = "center";
-
-    timeLabels.forEach((item) => {
-      const x = padding + graphWidth * item.position;
-      ctx.fillText(item.label, Math.round(x), height - padding + 15);
-    });
-
-    // Draw lines for each cable and total
-    // Calculate spacing based on actual number of points to fill the graph width
-    const numPoints = this.loadHistory.length;
-    const pointSpacing = numPoints > 1 ? graphWidth / (numPoints - 1) : 0;
-
-    // Helper to draw a line
-    const drawLine = (getData, color, lineWidth = 2) => {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.lineJoin = "round";
-      ctx.lineCap = "round";
-      ctx.beginPath();
-
-      let started = false;
-      for (let i = 0; i < this.loadHistory.length; i++) {
-        const point = this.loadHistory[i];
-        const value = getData(point);
-        const x = padding + i * pointSpacing;
-        const y = padding + graphHeight - (value / maxLoad) * graphHeight;
-
-        if (!started) {
-          ctx.moveTo(x, y);
-          started = true;
-        } else {
-          ctx.lineTo(x, y);
-        }
-      }
-      ctx.stroke();
+  setupChart() {
+    // Initialize chart and connect logging
+    this.chartManager.init();
+    this.chartManager.onLog = (message, type) => {
+      this.addLogEntry(message, type);
     };
-
-    // Draw total load (thicker line)
-    drawLine((p) => p.loadA + p.loadB, "#667eea", 3);
-
-    // Draw individual cables (thinner lines)
-    drawLine((p) => p.loadA, "#51cf66", 1.5);
-    drawLine((p) => p.loadB, "#ff6b6b", 1.5);
-
-    // Draw compact horizontal legend at top
-    const legendItems = [
-      { label: "Total", color: "#667eea" },
-      { label: "Right", color: "#51cf66" },
-      { label: "Left", color: "#ff6b6b" },
-    ];
-
-    ctx.font = "11px -apple-system, sans-serif";
-    ctx.textAlign = "left";
-
-    let legendX = padding + 10;
-    const legendY = padding - 20;
-
-    legendItems.forEach((item, i) => {
-      // Draw color box
-      ctx.fillStyle = item.color;
-      ctx.fillRect(Math.round(legendX), Math.round(legendY - 6), 10, 8);
-
-      // Draw label
-      ctx.fillStyle = "#495057";
-      ctx.fillText(item.label, Math.round(legendX + 13), Math.round(legendY));
-
-      // Move to next position (compact spacing)
-      legendX += ctx.measureText(item.label).width + 28;
-    });
   }
 
   addLogEntry(message, type = "info") {
@@ -306,20 +132,17 @@ class VitruvianApp {
       this.checkAutoStop(sample);
     }
 
-    // Add to load history
-    this.loadHistory.push({
-      timestamp: sample.timestamp,
-      loadA: sample.loadA,
-      loadB: sample.loadB,
-    });
+    // Add data to chart
+    this.chartManager.addData(sample);
+  }
 
-    // Trim history to max points
-    if (this.loadHistory.length > this.maxHistoryPoints) {
-      this.loadHistory.shift();
-    }
+  // Delegate chart methods to ChartManager
+  setTimeRange(seconds) {
+    this.chartManager.setTimeRange(seconds);
+  }
 
-    // Redraw graph
-    this.drawGraph();
+  exportData() {
+    this.chartManager.exportCSV();
   }
 
   // Mobile sidebar toggle

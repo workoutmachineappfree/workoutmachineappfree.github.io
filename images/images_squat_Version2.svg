@@ -1,0 +1,10 @@
+<!-- squat.svg -->
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200">
+  <rect width="100%" height="100%" fill="#f0fdf4"/>
+  <g fill="#16a34a" font-family="Arial, Helvetica, sans-serif" font-size="18" text-anchor="middle">
+    <text x="200" y="90" font-weight="700">Squats</text>
+    <text x="200" y="120" font-size="12" fill="#064e3b">placeholder demo</text>
+  </g>
+  <rect x="160" y="70" width="80" height="6" fill="#08312a" rx="3"/>
+  <rect x="140" y="100" width="120" height="10" fill="#08312a" rx="4"/>
+</svg>

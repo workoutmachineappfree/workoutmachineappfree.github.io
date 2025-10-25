@@ -37,12 +37,54 @@ class VitruvianDevice {
     this.monitorListeners = [];
     this.lastGoodPosA = 0;
     this.lastGoodPosB = 0;
+
+    // GATT operation queue to prevent "operation already in progress" errors
+    this.gattQueue = [];
+    this.gattBusy = false;
   }
 
   log(message, type = "info") {
     console.log(`[${type}] ${message}`);
     if (this.onLog) {
       this.onLog(message, type);
+    }
+  }
+
+  // Queue a GATT operation to prevent concurrent access
+  async queueGattOperation(operation) {
+    return new Promise((resolve, reject) => {
+      this.gattQueue.push({ operation, resolve, reject });
+      this.processGattQueue();
+    });
+  }
+
+  // Process queued GATT operations one at a time
+  async processGattQueue() {
+    // Exit if already processing or queue is empty
+    if (this.gattBusy || this.gattQueue.length === 0) {
+      return;
+    }
+
+    // Immediately set busy flag to prevent race conditions
+    this.gattBusy = true;
+
+    // Double-check queue isn't empty (defensive programming)
+    if (this.gattQueue.length === 0) {
+      this.gattBusy = false;
+      return;
+    }
+
+    const { operation, resolve, reject } = this.gattQueue.shift();
+
+    try {
+      const result = await operation();
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    } finally {
+      this.gattBusy = false;
+      // Process next operation in queue
+      this.processGattQueue();
     }
   }
 
@@ -177,29 +219,33 @@ class VitruvianDevice {
 
   // Write to RX characteristic with response
   async writeWithResponse(label, payload) {
-    try {
-      this.logWriteAttempt(label, payload);
-      await this.rxChar.writeValueWithResponse(payload);
-      this.logWriteResult(label, true);
-      return true;
-    } catch (error) {
-      this.logWriteResult(label, false);
-      this.log(`Error: ${error.message}`, "error");
-      throw error;
-    }
+    return this.queueGattOperation(async () => {
+      try {
+        this.logWriteAttempt(label, payload);
+        await this.rxChar.writeValueWithResponse(payload);
+        this.logWriteResult(label, true);
+        return true;
+      } catch (error) {
+        this.logWriteResult(label, false);
+        this.log(`Error: ${error.message}`, "error");
+        throw error;
+      }
+    });
   }
 
   // Write to RX characteristic without response
   async writeWithoutResponse(label, payload) {
-    try {
-      this.logWriteAttempt(label, payload);
-      await this.rxChar.writeValueWithoutResponse(payload);
-      this.log(`<- ${label} queued (no response expected)`, "info");
-      return true;
-    } catch (error) {
-      this.log(`Error: ${error.message}`, "error");
-      throw error;
-    }
+    return this.queueGattOperation(async () => {
+      try {
+        this.logWriteAttempt(label, payload);
+        await this.rxChar.writeValueWithoutResponse(payload);
+        this.log(`<- ${label} queued (no response expected)`, "info");
+        return true;
+      } catch (error) {
+        this.log(`Error: ${error.message}`, "error");
+        throw error;
+      }
+    });
   }
 
   // Send initialization sequence
@@ -338,7 +384,7 @@ class VitruvianDevice {
 
     this.propertyInterval = setInterval(async () => {
       try {
-        const value = await this.propertyChar.readValue();
+        const value = await this.queueGattOperation(() => this.propertyChar.readValue());
         const data = new Uint8Array(value.buffer);
         this.dispatchProperty(data);
       } catch (error) {
@@ -375,7 +421,7 @@ class VitruvianDevice {
 
     this.monitorInterval = setInterval(async () => {
       try {
-        const value = await this.monitorChar.readValue();
+        const value = await this.queueGattOperation(() => this.monitorChar.readValue());
         const data = new Uint8Array(value.buffer);
         const sample = this.parseMonitorData(data);
         this.dispatchMonitor(sample);

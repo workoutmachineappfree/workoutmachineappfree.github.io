@@ -7,8 +7,7 @@ class VitruvianApp {
   constructor() {
     this.device = new VitruvianDevice();
     this.chartManager = new ChartManager("loadGraph");
-    this.maxPosA = 1000; // Dynamic max for Right Cable (A)
-    this.maxPosB = 1000; // Dynamic max for Left Cable (B)
+    this.maxPos = 1000; // Shared max for both cables (keeps bars comparable)
     this.weightUnit = "kg"; // Display unit for weights (default)
     this.warmupReps = 0;
     this.workingReps = 0;
@@ -374,17 +373,15 @@ class VitruvianApp {
     document.getElementById("posAValue").textContent = sample.posA;
     document.getElementById("posBValue").textContent = sample.posB;
 
-    // Auto-adjust max positions (max seen + 100)
-    if (sample.posA > this.maxPosA) {
-      this.maxPosA = sample.posA + 100;
-    }
-    if (sample.posB > this.maxPosB) {
-      this.maxPosB = sample.posB + 100;
+    // Auto-adjust max position (shared for both cables to keep bars comparable)
+    const currentMax = Math.max(sample.posA, sample.posB);
+    if (currentMax > this.maxPos) {
+      this.maxPos = currentMax + 100;
     }
 
     // Update position bars with dynamic scaling
-    const heightA = Math.min((sample.posA / this.maxPosA) * 100, 100);
-    const heightB = Math.min((sample.posB / this.maxPosB) * 100, 100);
+    const heightA = Math.min((sample.posA / this.maxPos) * 100, 100);
+    const heightB = Math.min((sample.posB / this.maxPos) * 100, 100);
 
     document.getElementById("barA").style.height = heightA + "%";
     document.getElementById("barB").style.height = heightB + "%";
@@ -504,8 +501,8 @@ class VitruvianApp {
     // Cable A
     if (this.minRepPosA !== null && this.maxRepPosA !== null) {
       // Calculate positions as percentage from bottom
-      const minPctA = Math.min((this.minRepPosA / this.maxPosA) * 100, 100);
-      const maxPctA = Math.min((this.maxRepPosA / this.maxPosA) * 100, 100);
+      const minPctA = Math.min((this.minRepPosA / this.maxPos) * 100, 100);
+      const maxPctA = Math.min((this.maxRepPosA / this.maxPos) * 100, 100);
 
       rangeMinA.style.bottom = minPctA + "%";
       rangeMaxA.style.bottom = maxPctA + "%";
@@ -515,11 +512,11 @@ class VitruvianApp {
       // Update uncertainty bands
       if (this.minRepPosARange) {
         const minRangeMinPct = Math.min(
-          (this.minRepPosARange.min / this.maxPosA) * 100,
+          (this.minRepPosARange.min / this.maxPos) * 100,
           100,
         );
         const minRangeMaxPct = Math.min(
-          (this.minRepPosARange.max / this.maxPosA) * 100,
+          (this.minRepPosARange.max / this.maxPos) * 100,
           100,
         );
         const bandHeight = minRangeMaxPct - minRangeMinPct;
@@ -531,11 +528,11 @@ class VitruvianApp {
 
       if (this.maxRepPosARange) {
         const maxRangeMinPct = Math.min(
-          (this.maxRepPosARange.min / this.maxPosA) * 100,
+          (this.maxRepPosARange.min / this.maxPos) * 100,
           100,
         );
         const maxRangeMaxPct = Math.min(
-          (this.maxRepPosARange.max / this.maxPosA) * 100,
+          (this.maxRepPosARange.max / this.maxPos) * 100,
           100,
         );
         const bandHeight = maxRangeMaxPct - maxRangeMinPct;
@@ -554,8 +551,8 @@ class VitruvianApp {
     // Cable B
     if (this.minRepPosB !== null && this.maxRepPosB !== null) {
       // Calculate positions as percentage from bottom
-      const minPctB = Math.min((this.minRepPosB / this.maxPosB) * 100, 100);
-      const maxPctB = Math.min((this.maxRepPosB / this.maxPosB) * 100, 100);
+      const minPctB = Math.min((this.minRepPosB / this.maxPos) * 100, 100);
+      const maxPctB = Math.min((this.maxRepPosB / this.maxPos) * 100, 100);
 
       rangeMinB.style.bottom = minPctB + "%";
       rangeMaxB.style.bottom = maxPctB + "%";
@@ -565,11 +562,11 @@ class VitruvianApp {
       // Update uncertainty bands
       if (this.minRepPosBRange) {
         const minRangeMinPct = Math.min(
-          (this.minRepPosBRange.min / this.maxPosB) * 100,
+          (this.minRepPosBRange.min / this.maxPos) * 100,
           100,
         );
         const minRangeMaxPct = Math.min(
-          (this.minRepPosBRange.max / this.maxPosB) * 100,
+          (this.minRepPosBRange.max / this.maxPos) * 100,
           100,
         );
         const bandHeight = minRangeMaxPct - minRangeMinPct;
@@ -581,11 +578,11 @@ class VitruvianApp {
 
       if (this.maxRepPosBRange) {
         const maxRangeMinPct = Math.min(
-          (this.maxRepPosBRange.min / this.maxPosB) * 100,
+          (this.maxRepPosBRange.min / this.maxPos) * 100,
           100,
         );
         const maxRangeMaxPct = Math.min(
-          (this.maxRepPosBRange.max / this.maxPosB) * 100,
+          (this.maxRepPosBRange.max / this.maxPos) * 100,
           100,
         );
         const bandHeight = maxRangeMaxPct - maxRangeMinPct;

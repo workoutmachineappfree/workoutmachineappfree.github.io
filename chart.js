@@ -16,6 +16,7 @@ class ChartManager {
       decimals: 1,
       toDisplay: (value) => value,
     };
+    this.eventMarkers = []; // Array of {time: Date, label: string, color: string}
   }
 
   // Initialize uPlot chart
@@ -38,9 +39,58 @@ class ChartManager {
 
     const manager = this;
 
+    // Plugin to draw event markers
+    const eventMarkersPlugin = {
+      hooks: {
+        draw: [
+          (u) => {
+            const { ctx } = u;
+            const { left, top, width, height } = u.bbox;
+
+            ctx.save();
+
+            // Draw each event marker
+            manager.eventMarkers.forEach((marker) => {
+              const markerTime = marker.time.getTime() / 1000; // Convert to Unix seconds
+              const x = u.valToPos(markerTime, "x", true);
+
+              // Only draw if marker is within visible range
+              if (x >= left && x <= left + width) {
+                // Draw vertical line
+                ctx.strokeStyle = marker.color || "#ff6b6b";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x, top);
+                ctx.lineTo(x, top + height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw label
+                ctx.fillStyle = marker.color || "#ff6b6b";
+                ctx.font = "14px sans-serif";
+                ctx.textAlign = "left";
+                ctx.textBaseline = "top";
+
+                // Rotate text 90 degrees and offset from line
+                ctx.save();
+                ctx.translate(x + 14, top + 5);
+                ctx.rotate(Math.PI / 2);
+                ctx.fillText(marker.label, 0, 0);
+                ctx.restore();
+              }
+            });
+
+            ctx.restore();
+          },
+        ],
+      },
+    };
+
     const opts = {
       width: container.clientWidth || 800,
       height: 300,
+      plugins: [eventMarkersPlugin],
       cursor: {
         drag: {
           x: true,
@@ -427,5 +477,85 @@ class ChartManager {
   // Get current data point count
   getDataCount() {
     return this.loadHistory.length;
+  }
+
+  // Set event markers for a workout
+  setEventMarkers(markers) {
+    this.eventMarkers = markers;
+    if (this.chart) {
+      this.chart.redraw();
+    }
+  }
+
+  // Clear event markers
+  clearEventMarkers() {
+    this.eventMarkers = [];
+    if (this.chart) {
+      this.chart.redraw();
+    }
+  }
+
+  // View a specific workout on the graph
+  viewWorkout(workout) {
+    if (!workout.startTime || !workout.endTime) {
+      if (this.onLog) {
+        this.onLog("Workout does not have timing information", "error");
+      }
+      return;
+    }
+
+    // Set event markers for this workout
+    const markers = [
+      {
+        time: workout.startTime,
+        label: "Start",
+        color: "#51cf66",
+      },
+    ];
+
+    if (workout.warmupEndTime) {
+      markers.push({
+        time: workout.warmupEndTime,
+        label: "Load",
+        color: "#ffa94d",
+      });
+    }
+
+    markers.push({
+      time: workout.endTime,
+      label: "End",
+      color: "#ff6b6b",
+    });
+
+    this.setEventMarkers(markers);
+
+    // Set time range to show the workout
+    this.live = false;
+    this.currentTimeRange = null;
+
+    // Update button active states to show "All" is active
+    document.getElementById("range10s").classList.remove("active");
+    document.getElementById("range30s").classList.remove("active");
+    document.getElementById("range60s").classList.remove("active");
+    document.getElementById("range2m").classList.remove("active");
+    document.getElementById("rangeAll").classList.add("active");
+
+    // Calculate time bounds with some padding
+    const startTime = workout.startTime.getTime() / 1000;
+    const endTime = workout.endTime.getTime() / 1000;
+    const duration = endTime - startTime;
+    const padding = duration * 0.1; // 10% padding on each side
+
+    // Set chart scale to show the workout
+    if (this.chart) {
+      this.chart.setScale("x", {
+        min: startTime - padding,
+        max: endTime + padding,
+      });
+    }
+
+    if (this.onLog) {
+      this.onLog(`Viewing workout: ${workout.mode}`, "info");
+    }
   }
 }

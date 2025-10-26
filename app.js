@@ -36,6 +36,7 @@ class VitruvianApp {
     this.setupChart();
     this.setupUnitControls();
     this.resetRepCountersToEmpty();
+    this.updateStopButtonState();
   }
 
   setupLogging() {
@@ -335,6 +336,34 @@ class VitruvianApp {
     }
   }
 
+  updateStopButtonState() {
+    const stopBtn = document.getElementById("stopBtn");
+    if (!stopBtn) return;
+
+    // Check if device is connected and there's an active workout
+    const isConnected = this.device && this.device.isConnected;
+    const hasActiveWorkout = this.currentWorkout !== null;
+
+    // Grey out if disconnected OR no active workout
+    if (!isConnected || !hasActiveWorkout) {
+      stopBtn.style.opacity = "0.5";
+
+      // Set tooltip based on the specific issue
+      let tooltip = "";
+      if (!isConnected && !hasActiveWorkout) {
+        tooltip = "Device disconnected and no workout active, but you can still send a stop request if you think this is not right";
+      } else if (!isConnected) {
+        tooltip = "Device disconnected, but you can still send a stop request if you think this is not right";
+      } else {
+        tooltip = "No workout active, but you can still send a stop request if you think this is not right";
+      }
+      stopBtn.title = tooltip;
+    } else {
+      stopBtn.style.opacity = "1";
+      stopBtn.title = "Stop the current workout";
+    }
+  }
+
   updateConnectionStatus(connected) {
     const statusDiv = document.getElementById("status");
     const connectBtn = document.getElementById("connectBtn");
@@ -360,6 +389,8 @@ class VitruvianApp {
       echoSection.classList.add("hidden");
       colorSection.classList.add("hidden");
     }
+
+    this.updateStopButtonState();
   }
 
   updateLiveStats(sample) {
@@ -637,11 +668,22 @@ class VitruvianApp {
       autoStopTimer.style.display = "none";
     }
     this.updateAutoStopUI(0);
+    this.updateStopButtonState();
   }
 
   addToWorkoutHistory(workout) {
     this.workoutHistory.unshift(workout); // Add to beginning
     this.updateHistoryDisplay();
+  }
+
+  viewWorkoutOnGraph(index) {
+    if (index < 0 || index >= this.workoutHistory.length) {
+      this.addLogEntry("Invalid workout index", "error");
+      return;
+    }
+
+    const workout = this.workoutHistory[index];
+    this.chartManager.viewWorkout(workout);
   }
 
   updateHistoryDisplay() {
@@ -658,15 +700,20 @@ class VitruvianApp {
     }
 
     historyList.innerHTML = this.workoutHistory
-      .map((workout) => {
+      .map((workout, index) => {
         const weightStr =
           workout.weightKg > 0
             ? `${this.formatWeightWithUnit(workout.weightKg)}`
             : "Adaptive";
+        const hasTimingData = workout.startTime && workout.endTime;
+        const viewButtonHtml = hasTimingData
+          ? `<button class="view-graph-btn" onclick="app.viewWorkoutOnGraph(${index})" title="View this workout on the graph">📊 View Graph</button>`
+          : "";
         return `
       <div class="history-item">
         <div class="history-item-title">${workout.mode}</div>
         <div class="history-item-details">${weightStr} • ${workout.reps} reps</div>
+        ${viewButtonHtml}
       </div>
     `;
       })
@@ -675,12 +722,19 @@ class VitruvianApp {
 
   completeWorkout() {
     if (this.currentWorkout) {
+      // Set end time
+      const endTime = new Date();
+      this.currentWorkout.endTime = endTime;
+
       // Add to history
       this.addToWorkoutHistory({
         mode: this.currentWorkout.mode,
         weightKg: this.currentWorkout.weightKg,
         reps: this.workingReps, // Actual reps completed
-        timestamp: new Date(),
+        timestamp: endTime,
+        startTime: this.currentWorkout.startTime,
+        warmupEndTime: this.currentWorkout.warmupEndTime,
+        endTime: endTime,
       });
 
       // Reset to empty state
@@ -1004,9 +1058,15 @@ class VitruvianApp {
           `Warmup rep ${this.warmupReps}/${this.warmupTarget} complete`,
           "success",
         );
+
+        // Record when warmup ends (last warmup rep complete)
+        if (this.warmupReps === this.warmupTarget && this.currentWorkout && !this.currentWorkout.warmupEndTime) {
+          this.currentWorkout.warmupEndTime = new Date();
+        }
       } else {
         // Working reps
         this.workingReps++;
+
         if (this.targetReps > 0) {
           this.addLogEntry(
             `Working rep ${this.workingReps}/${this.targetReps} complete`,
@@ -1169,6 +1229,9 @@ class VitruvianApp {
         mode: modeName || "Program",
         weightKg: perCableKg,
         targetReps: reps,
+        startTime: new Date(),
+        warmupEndTime: null,
+        endTime: null,
       };
       this.updateRepCounters();
 
@@ -1189,6 +1252,9 @@ class VitruvianApp {
       this.device.addRepListener((data) => {
         this.handleRepNotification(data);
       });
+
+      // Update stop button state
+      this.updateStopButtonState();
 
       // Close sidebar on mobile after starting
       this.closeSidebar();
@@ -1254,6 +1320,9 @@ class VitruvianApp {
         mode: modeName,
         weightKg: 0, // Echo mode doesn't have fixed weight
         targetReps: targetReps,
+        startTime: new Date(),
+        warmupEndTime: null,
+        endTime: null,
       };
       this.updateRepCounters();
 
@@ -1274,6 +1343,9 @@ class VitruvianApp {
       this.device.addRepListener((data) => {
         this.handleRepNotification(data);
       });
+
+      // Update stop button state
+      this.updateStopButtonState();
 
       // Close sidebar on mobile after starting
       this.closeSidebar();

@@ -9,6 +9,7 @@ class VitruvianApp {
     this.chartManager = new ChartManager("loadGraph");
     this.maxPos = 1000; // Shared max for both cables (keeps bars comparable)
     this.weightUnit = "kg"; // Display unit for weights (default)
+    this.stopAtTop = false; // Stop at top of final rep instead of bottom
     this.warmupReps = 0;
     this.workingReps = 0;
     this.warmupTarget = 3; // Default warmup target
@@ -443,6 +444,16 @@ class VitruvianApp {
     }
   }
 
+  // Toggle stop at top setting
+  toggleStopAtTop() {
+    const checkbox = document.getElementById("stopAtTopCheckbox");
+    this.stopAtTop = checkbox.checked;
+    this.addLogEntry(
+      `Stop at top of final rep: ${this.stopAtTop ? "enabled" : "disabled"}`,
+      "info",
+    );
+  }
+
   // Toggle Just Lift mode UI for Echo mode
   toggleEchoJustLiftMode() {
     const echoJustLiftCheckbox = document.getElementById(
@@ -761,14 +772,10 @@ class VitruvianApp {
 
     // Log if range changed significantly (> 5 units)
     const rangeChanged =
-      (oldMinA !== null &&
-        Math.abs(this.minRepPosA - oldMinA) > 5) ||
-      (oldMaxA !== null &&
-        Math.abs(this.maxRepPosA - oldMaxA) > 5) ||
-      (oldMinB !== null &&
-        Math.abs(this.minRepPosB - oldMinB) > 5) ||
-      (oldMaxB !== null &&
-        Math.abs(this.maxRepPosB - oldMaxB) > 5);
+      (oldMinA !== null && Math.abs(this.minRepPosA - oldMinA) > 5) ||
+      (oldMaxA !== null && Math.abs(this.maxRepPosA - oldMaxA) > 5) ||
+      (oldMinB !== null && Math.abs(this.minRepPosB - oldMinB) > 5) ||
+      (oldMaxB !== null && Math.abs(this.maxRepPosB - oldMaxB) > 5);
 
     if (rangeChanged || oldMinA === null) {
       const rangeA =
@@ -942,6 +949,23 @@ class VitruvianApp {
           this.currentSample.posB,
         );
         this.lastTopCounter = topCounter;
+
+        // Check if we should complete at top of final rep
+        if (
+          this.stopAtTop &&
+          !this.isJustLiftMode &&
+          this.targetReps > 0 &&
+          this.workingReps === this.targetReps - 1
+        ) {
+          // We're at targetReps - 1, and just reached top
+          // This is the top of the final rep, complete now
+          this.addLogEntry(
+            "Reached top of final rep! Auto-completing workout...",
+            "success",
+          );
+          this.stopWorkout(); // Must be explicitly stopped as the machine thinks the set isn't finished until the bottom of the final rep.
+          this.completeWorkout();
+        }
       }
     }
 
@@ -996,11 +1020,14 @@ class VitruvianApp {
         }
 
         // Auto-complete workout when target reps are reached (but not for Just Lift)
+        // Only applies when stopAtTop is disabled
         if (
+          !this.stopAtTop &&
           !this.isJustLiftMode &&
           this.targetReps > 0 &&
           this.workingReps >= this.targetReps
         ) {
+          // Complete immediately at bottom (default behavior)
           this.addLogEntry(
             "Target reps reached! Auto-completing workout...",
             "success",
@@ -1085,9 +1112,7 @@ class VitruvianApp {
         perCableKg < 0 ||
         perCableKg > 100
       ) {
-        alert(
-          `Please enter a valid weight (${this.getWeightRangeText()})`,
-        );
+        alert(`Please enter a valid weight (${this.getWeightRangeText()})`);
         return;
       }
 
@@ -1195,7 +1220,10 @@ class VitruvianApp {
         return;
       }
 
-      if (!isJustLift && (isNaN(targetReps) || targetReps < 0 || targetReps > 30)) {
+      if (
+        !isJustLift &&
+        (isNaN(targetReps) || targetReps < 0 || targetReps > 30)
+      ) {
         alert("Please enter valid target reps (0-30)");
         return;
       }

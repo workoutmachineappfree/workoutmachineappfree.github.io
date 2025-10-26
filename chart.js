@@ -533,6 +533,9 @@ class ChartManager {
     this.live = false;
     this.currentTimeRange = null;
 
+    // Update chart data to ensure the latest workout is loaded
+    this.updateChartData();
+
     // Update button active states to show "All" is active
     document.getElementById("range10s").classList.remove("active");
     document.getElementById("range30s").classList.remove("active");

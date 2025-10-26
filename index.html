@@ -774,11 +774,34 @@
                                 font-size: 0.8em;
                                 color: #6c757d;
                                 line-height: 1.4;
+                                margin-bottom: 20px;
                             "
                         >
                             Choose how loads appear in the dashboard, charts,
                             and exported CSV files. The device always receives
                             kilogram values.
+                        </div>
+
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input
+                                    type="checkbox"
+                                    id="stopAtTopCheckbox"
+                                    onchange="app.toggleStopAtTop()"
+                                    style="width: auto; cursor: pointer;"
+                                />
+                                <span>Stop at top of final rep</span>
+                            </label>
+                        </div>
+
+                        <div
+                            style="
+                                font-size: 0.8em;
+                                color: #6c757d;
+                                line-height: 1.4;
+                            "
+                        >
+                            When enabled, the workout will automatically stop when you reach the top position of your final rep. Useful for exercises like squats where you want to finish standing.
                         </div>
                     </div>
 

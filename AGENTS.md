@@ -83,8 +83,6 @@ Choose your starting point based on familiarity—if you already know the API su
 - **Start program**: capture sidebar inputs → send 4-byte init command → send 34-byte preset → send 96-byte program payload → receive telemetry.
 - **Telemetry loop**: notifications → device.parseMonitorData → rep state machine → canvas update → UI feedback.
 
-*Safety: The STOP control must always succeed; "Just Lift" remains disabled until safe auto-stop exists.*
-
 ### Agent Runbooks (success criteria)
 - Connect: Click Connect → chooser appears → connect → UI shows connected; console has no errors
 - Start Program: Configure inputs → send frames (4/34/96 bytes) → telemetry updates visible; no BLE errors

@@ -1,4 +1,5 @@
 # Bug Reports
+[ ] STOP button does not work 
 
 # Feature Requests
 [ ]: Brainstorm with Ai appropriate tests for this repo and consider adjusting to a Test/Behavior Driven Development approach.

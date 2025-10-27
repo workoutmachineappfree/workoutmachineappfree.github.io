@@ -640,6 +640,31 @@
                             </div>
                         </div>
 
+                        <div class="form-group" id="perCableLimitGroup">
+                            <label for="perCableLimit" id="perCableLimitLabel"
+                                >Per-cable load limit (kg):</label
+                            >
+                            <input
+                                type="number"
+                                id="perCableLimit"
+                                placeholder="e.g. 12.5"
+                                min="0"
+                                max="100"
+                                step="0.5"
+                            />
+                            <div
+                                id="perCableLimitHint"
+                                style="
+                                    font-size: 0.75em;
+                                    color: #6c757d;
+                                    margin-top: 5px;
+                                    line-height: 1.4;
+                                "
+                            >
+                            Regression/Progression will hold at this limit (per session). Leave blank to let progression/regression run without limit.
+                            </div>
+                        </div>
+
                         <div
                             class="form-group"
                             style="

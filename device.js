@@ -323,6 +323,21 @@ class VitruvianDevice {
     this.startMonitorPolling();
   }
 
+  async updateProgramParams(params) {
+    const frame = buildProgramParams(params);
+    const modeStr = ProgramModeNames[params.mode];
+    this.log(
+      `\nUpdating program parameters for ${modeStr} (cap applied)`,
+      "info",
+    );
+    this.log(
+      `Sending updated program frame (96 bytes): ${bytesToHex(frame)}`,
+      "info",
+    );
+    await this.writeWithResponse("Program params (update)", frame);
+    this.log("Program parameters updated", "success");
+  }
+
   // Start Echo mode
   async startEcho(params) {
     const frame = buildEchoControl(params);

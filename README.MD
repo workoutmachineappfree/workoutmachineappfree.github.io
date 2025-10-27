@@ -17,6 +17,7 @@ Keep your Vitruvian Trainer usable without company servers. This project is a li
   - Old School, Pump, TUT, TUT Beast
   - Echo (adaptive)
 - Live telemetry: load (kg), cable positions, rep counting, load graph
+- Session controls: per-cable weight, ±3 kg per-rep progression/regression, optional per-cable load cap
 - LED color schemes
 - Safety: prominent STOP. “Just Lift” is disabled until safe auto‑stop is implemented.
 

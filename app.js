@@ -32,6 +32,9 @@ class VitruvianApp {
     this.autoStopStartTime = null; // When we entered the auto-stop danger zone
     this.isJustLiftMode = false; // Flag for Just Lift mode with auto-stop
     this.lastTopCounter = undefined; // Track u16[1] for top detection
+    this.perCableLimitKg = null; // Optional per-cable progression limit
+    this.limitCapApplied = false; // Whether we've already flattened progression
+    this.currentProgramParams = null; // Last program frame inputs
     this.setupLogging();
     this.setupChart();
     this.setupUnitControls();
@@ -87,10 +90,14 @@ class VitruvianApp {
 
     const weightInput = document.getElementById("weight");
     const progressionInput = document.getElementById("progression");
+    const perCableLimitInput = document.getElementById("perCableLimit");
 
     const currentWeight = weightInput ? parseFloat(weightInput.value) : NaN;
     const currentProgression = progressionInput
       ? parseFloat(progressionInput.value)
+      : NaN;
+    const currentLimit = perCableLimitInput
+      ? parseFloat(perCableLimitInput.value)
       : NaN;
 
     const weightKg = !isNaN(currentWeight)
@@ -118,6 +125,16 @@ class VitruvianApp {
         progressionKg,
         this.getProgressionInputDecimals(),
       );
+    }
+
+    if (perCableLimitInput && !Number.isNaN(currentLimit)) {
+      const limitKg = this.convertDisplayToKg(currentLimit, previousUnit);
+      if (!Number.isNaN(limitKg)) {
+        perCableLimitInput.value = this.formatWeightValue(
+          limitKg,
+          this.getWeightInputDecimals(),
+        );
+      }
     }
 
     this.onUnitChanged();
@@ -219,6 +236,7 @@ class VitruvianApp {
     }
 
     const progressionInput = document.getElementById("progression");
+    const perCableLimitInput = document.getElementById("perCableLimit");
     if (progressionInput) {
       const maxDisplay = this.convertKgToDisplay(3);
       progressionInput.min = (-maxDisplay).toFixed(
@@ -228,6 +246,18 @@ class VitruvianApp {
         this.getProgressionInputDecimals(),
       );
       progressionInput.step = this.weightUnit === "lb" ? 0.2 : 0.1;
+    }
+
+    if (perCableLimitInput) {
+      const minDisplay = this.convertKgToDisplay(0);
+      const maxDisplay = this.convertKgToDisplay(100);
+      perCableLimitInput.min = minDisplay.toFixed(
+        this.getWeightInputDecimals(),
+      );
+      perCableLimitInput.max = maxDisplay.toFixed(
+        this.getWeightInputDecimals(),
+      );
+      perCableLimitInput.step = this.weightUnit === "lb" ? 1 : 0.5;
     }
   }
 
@@ -529,6 +559,74 @@ class VitruvianApp {
     }
   }
 
+  updateProgramTrackingAfterRep() {
+    if (!this.currentProgramParams) {
+      return;
+    }
+
+    if (this.currentProgramParams.progressionKg === 0) {
+      return;
+    }
+
+    this.currentProgramParams = {
+      ...this.currentProgramParams,
+      perCableKg:
+        this.currentProgramParams.perCableKg +
+        this.currentProgramParams.progressionKg,
+      effectiveKg:
+        this.currentProgramParams.perCableKg +
+        this.currentProgramParams.progressionKg +
+        10.0,
+    };
+  }
+
+  maybeApplyLoadLimit() {
+    if (
+      this.perCableLimitKg === null ||
+      this.limitCapApplied ||
+      !this.currentProgramParams
+    ) {
+      return;
+    }
+
+    const { perCableKg, progressionKg } = this.currentProgramParams;
+    if (progressionKg === 0) {
+      return;
+    }
+
+    const projectedNext = perCableKg + progressionKg;
+    const limitKg = this.perCableLimitKg;
+
+    const wouldExceedCap =
+      (progressionKg > 0 && projectedNext > limitKg) ||
+      (progressionKg < 0 && projectedNext < limitKg);
+
+    if (!wouldExceedCap) {
+      return;
+    }
+
+    this.limitCapApplied = true;
+
+    this.currentProgramParams = {
+      ...this.currentProgramParams,
+      perCableKg: limitKg,
+      effectiveKg: limitKg + 10.0,
+      progressionKg: 0,
+    };
+
+    this.addLogEntry(
+      `Per-cable load limit applied at ${this.formatWeightWithUnit(limitKg)}. Holding steady for remainder of session.`,
+      "info",
+    );
+
+    this.device
+      .updateProgramParams(this.currentProgramParams)
+      .catch((error) => {
+        console.error("Failed to update program params:", error);
+        this.addLogEntry(`Failed to apply load cap: ${error.message}`, "error");
+      });
+  }
+
   updateRangeIndicators() {
     // Update range indicators for cable A
     const rangeMinA = document.getElementById("rangeMinA");
@@ -660,6 +758,9 @@ class VitruvianApp {
     this.autoStopStartTime = null;
     this.isJustLiftMode = false;
     this.lastTopCounter = undefined;
+    this.perCableLimitKg = null;
+    this.limitCapApplied = false;
+    this.currentProgramParams = null;
     this.updateRepCounters();
 
     // Hide auto-stop timer
@@ -1096,7 +1197,9 @@ class VitruvianApp {
         }
       }
 
-      this.updateRepCounters();
+        this.updateProgramTrackingAfterRep();
+        this.maybeApplyLoadLimit();
+        this.updateRepCounters();
     }
 
     this.lastRepCounter = completeCounter;
@@ -1155,15 +1258,23 @@ class VitruvianApp {
       const repsInput = document.getElementById("reps");
       const justLiftCheckbox = document.getElementById("justLiftCheckbox");
       const progressionInput = document.getElementById("progression");
+      const perCableLimitInput = document.getElementById("perCableLimit");
 
       const baseMode = parseInt(modeSelect.value);
       const perCableDisplay = parseFloat(weightInput.value);
       const isJustLift = justLiftCheckbox.checked;
       const reps = isJustLift ? 0 : parseInt(repsInput.value);
       const progressionDisplay = parseFloat(progressionInput.value);
+      const limitDisplay = perCableLimitInput
+        ? parseFloat(perCableLimitInput.value)
+        : NaN;
 
       const perCableKg = this.convertDisplayToKg(perCableDisplay);
       const progressionKg = this.convertDisplayToKg(progressionDisplay);
+      const limitKg =
+        perCableLimitInput && !Number.isNaN(limitDisplay)
+          ? this.convertDisplayToKg(limitDisplay)
+          : null;
 
       // Validate inputs
       if (
@@ -1193,6 +1304,20 @@ class VitruvianApp {
         return;
       }
 
+      if (perCableLimitInput && !Number.isNaN(limitDisplay)) {
+        if (
+          limitKg === null ||
+          Number.isNaN(limitKg) ||
+          limitKg < 0 ||
+          limitKg > 100
+        ) {
+          alert(
+            `Please enter a valid per-cable limit (0-100 ${this.getUnitLabel()})`,
+          );
+          return;
+        }
+      }
+
       // Calculate effective weight (per_cable_kg + 10)
       const effectiveKg = perCableKg + 10.0;
       const effectiveDisplay = this.convertKgToDisplay(effectiveKg);
@@ -1210,6 +1335,14 @@ class VitruvianApp {
         progressionDisplay: this.convertKgToDisplay(progressionKg),
         displayUnit: this.getUnitLabel(),
         sequenceID: 0x0b,
+      };
+
+      // Store session limit state
+      this.perCableLimitKg =
+        perCableLimitInput && !Number.isNaN(limitDisplay) ? limitKg : null;
+      this.limitCapApplied = false;
+      this.currentProgramParams = {
+        ...params,
       };
 
       // Set rep targets before starting

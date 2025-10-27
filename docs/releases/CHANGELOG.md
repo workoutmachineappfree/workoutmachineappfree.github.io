@@ -2,6 +2,12 @@
 
 ## Upstream Releases (workoutmachineappfree/workoutmachineappfree.github.io)
 
+### Unreleased
+- Added optional per-cable load limit control; when set, progression/regression stops once either cable reaches the limit.
+  - UI: new field in Program section; supports kg/lb units, blank disables the cap.
+  - Implementation: monitor loop flattens progression via existing 96-byte frame (offset 0x58 per-cable kg, 0x5C progression set to 0).
+  - Reminder: requires manual hardware validation before merge.
+
 ### 2025-10-26
 - **View Previous Workouts**: Added feature to view historical workout data on graph (PRs #8, #6)
 - **Chart Data Fix**: Ensure latest workout is loaded before displaying

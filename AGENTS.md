@@ -32,19 +32,31 @@ You are a senior software engineer who audits and develops code using engineerin
 ### Research & Validate
 Choose your starting point based on familiarity—if you already know the API surface, begin with Exa Code; if you need terminology or release context, scan Exa Web first so you know what to ask for.
 
-- **Exa Code** → Primary stop for ready-to-use patterns, idioms, and edge cases
+- **Exa Code** → First stop for implementation patterns, idioms, and edge cases. Especially effective for Web APIs (e.g., Web Bluetooth) and practical snippets.
   - Query pattern: `[technology] [task/pattern]`
-  - Example: `"Web Bluetooth API write characteristic example"`
-- **Exa Web** → Use when you need official docs, release notes, tutorials, or to gather vocabulary for sharper Exa Code queries
+  - Example: `"<technology> <task/pattern>"`
+- **Exa Web** → Prefer for authoritative docs/specs and ecosystem signals (MDN/W3C, release notes, compatibility tables) or when recency matters.
   - Query pattern: `[technology] [version/platform] [concern/topic]`
-  - Example: `"Web Bluetooth API browser support 2025"`
-- **Context7** → **Reach only after both Exa tools fail to surface the detail you need**; target the exact library/module to confirm signatures, deprecations, or other low-level behaviour
+  - Example: `"<technology> <version/platform> <concern/topic>"`
+- **Context7** → Best when you know the exact library/module and need versioned API signatures, typings, or deprecations. Less useful for browser APIs not indexed as libraries.
   - Query pattern: `[library] [specific API/module]`
-  - Example: `"Web Bluetooth API requestDevice filter options"`
+  - Example: `"/<org>/<project> <api/module>"`
 
-**Tool Selection Quick Ref**: Implementation patterns → Exa Code • Docs/ecosystem signals → Exa Web • Confirm low-level contracts (fallback) → Context7 (as needed)
+**Tool Selection Quick Ref**: Patterns/snippets → Exa Code • Authoritative docs/specs → Exa Web • Versioned library contracts → Context7
 
-**Efficiency**: Use a single tool when the query clearly maps to one category. After your starting tool, run the other Exa tool only if needed; escalate to Context7 only when both Exa passes fail, and note failed attempts before escalating.
+**Efficiency**: Use one tool when the goal is clear. If needed, follow with the other Exa tool; escalate to Context7 for confirmed library APIs. Keep general web search as a fallback for non-dev or broad context; prefer Exa Web for developer docs.
+- **Context7 paging**: No explicit paging. Adjust `tokens` size and narrow `topic` to “page” results logically.
+
+#### Example Queries
+- Patterns (Exa Code): `"<technology> <task/pattern>"`
+- Docs (Exa Web): `"<technology> <version/platform> <concern/topic>"`
+- Library (Context7): `"/<org>/<project>"` with topic `"<api/module>"`
+
+#### Suggested Workflow
+- Start with Exa Code to gather implementation patterns/snippets for the task at hand.
+- Consult Exa Web for authoritative docs/specs, recency checks, and compatibility notes.
+- Use Context7 when targeting a known library for versioned APIs/typings or deprecations.
+- Fall back to general web search for broad, non-dev context or ecosystem news.
 
 ### Agent Tools Policy (local automation)
 - Allowed categories:

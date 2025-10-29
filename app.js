@@ -722,6 +722,10 @@ class VitruvianApp {
 
   completeWorkout() {
     if (this.currentWorkout) {
+      // Stop polling to prevent queue buildup
+      this.device.stopPropertyPolling();
+      this.device.stopMonitorPolling();
+
       // Set end time
       const endTime = new Date();
       this.currentWorkout.endTime = endTime;

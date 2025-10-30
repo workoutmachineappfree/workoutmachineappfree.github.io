@@ -211,6 +211,25 @@
                 color: #2b8a3e;
             }
 
+            /* Test mode badge */
+            .test-mode-badge {
+                display: inline-block;
+                padding: 6px 16px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 700;
+                margin-top: 10px;
+                background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+                color: #ffffff;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                box-shadow: 0 2px 8px rgba(251, 140, 0, 0.4);
+            }
+
+            .test-mode-badge.hidden {
+                display: none;
+            }
+
             /* Position bars */
             .position-bars {
                 display: flex;
@@ -561,6 +580,7 @@
                 <div class="sidebar-header">
                     <h1>Vitruvian Control</h1>
                     <p>Web Bluetooth Interface</p>
+                    <div id="testModeBadge" class="test-mode-badge hidden">TEST MODE</div>
                 </div>
 
                 <div class="sidebar-content">

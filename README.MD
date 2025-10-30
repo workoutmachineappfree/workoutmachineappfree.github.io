@@ -29,7 +29,39 @@ Keep your Vitruvian Trainer usable without company servers. This project is a li
    ```bash
    python3 -m http.server 8000
    ```
-3. Open `http://localhost:8000`, click “Connect to Device,” select your Vitruvian.
+3. Open `http://localhost:8000`, click "Connect to Device," select your Vitruvian.
+
+## Test Mode (UI Development Without Hardware)
+
+Test mode enables UI development and testing without requiring a physical device or Web Bluetooth support. This is useful for:
+- Developing and testing UI layouts and interactions
+- Refactoring UI code without hardware access
+- Testing form validation and accessibility features
+- Verifying responsive design across different screen sizes
+
+### How to Enable Test Mode
+
+You can enable test mode in two ways:
+
+1. **URL parameter**: Add `?testMode=true` to the URL:
+   ```
+   http://localhost:8000?testMode=true
+   ```
+
+2. **localStorage**: Set `vitruvianTestMode = "true"` in your browser's console:
+   ```javascript
+   localStorage.setItem("vitruvianTestMode", "true");
+   ```
+
+### Using Test Mode
+
+1. Enable test mode using one of the methods above
+2. Reload the page - you'll see a "TEST MODE" badge in the sidebar header
+3. Click "Connect to Device" - the connection will proceed without Web Bluetooth
+4. All UI sections (Program Mode, Echo Mode, Color Scheme) will become visible
+5. You can now interact with all UI elements and test layouts
+
+**Note**: Test mode uses mock Bluetooth characteristics, so actual device communication won't occur. Hardware testing is still required for protocol changes and end-to-end validation.
 
 ## Contributing (fork/PR)
 ```bash

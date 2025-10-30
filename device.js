@@ -41,6 +41,27 @@ class VitruvianDevice {
     // GATT operation queue to prevent "operation already in progress" errors
     this.gattQueue = [];
     this.gattBusy = false;
+
+    // Test/mock mode: enable via URL parameter ?testMode=true or localStorage
+    this.testMode = this.detectTestMode();
+  }
+
+  detectTestMode() {
+    // Check URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTestMode = urlParams.get("testMode") === "true";
+    // Check localStorage
+    let localStorageTestMode = false;
+    try {
+      localStorageTestMode = localStorage.getItem("vitruvianTestMode") === "true";
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+    const testMode = urlTestMode || localStorageTestMode;
+    if (testMode) {
+      console.log("[TEST MODE] Enabled via URL parameter or localStorage");
+    }
+    return testMode;
   }
 
   log(message, type = "info") {
@@ -104,6 +125,57 @@ class VitruvianDevice {
   // Connect to the Vitruvian device
   async connect() {
     try {
+      // Test mode: simulate connection without requiring user gesture
+      // Re-check test mode in case it was enabled after construction
+      const testMode = this.detectTestMode();
+      if (testMode) {
+        this.log("TEST MODE: Simulating Bluetooth connection...", "info");
+        this.log("Note: This is a mock connection for testing/automation.", "info");
+        
+        // Initialize mock characteristics for test mode
+        // These mock objects implement the same interface as real Bluetooth characteristics
+        this.rxChar = {
+          writeValueWithResponse: async () => {
+            this.log("TEST MODE: Mock writeValueWithResponse called", "info");
+            return Promise.resolve();
+          },
+          writeValueWithoutResponse: async () => {
+            this.log("TEST MODE: Mock writeValueWithoutResponse called", "info");
+            return Promise.resolve();
+          },
+        };
+        
+        this.monitorChar = {
+          readValue: async () => {
+            // Return mock data: 16 bytes of zeros (DataView format like Web Bluetooth API)
+            return new DataView(new ArrayBuffer(16));
+          },
+        };
+        
+        this.propertyChar = {
+          readValue: async () => {
+            // Return mock data: 16 bytes of zeros (DataView format like Web Bluetooth API)
+            return new DataView(new ArrayBuffer(16));
+          },
+        };
+        
+        this.repNotifyChar = {
+          startNotifications: async () => {
+            this.log("TEST MODE: Mock startNotifications called", "info");
+            return Promise.resolve();
+          },
+          addEventListener: () => {
+            // Mock: no-op for test mode
+          },
+        };
+        
+        this.log("TEST MODE: Mock characteristics initialized", "success");
+        // Simulate successful connection
+        this.isConnected = true;
+        this.log("TEST MODE: Connected (simulated)", "success");
+        return true;
+      }
+
       this.log("Requesting Bluetooth device...", "info");
 
       // Request device with filters

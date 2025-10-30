@@ -40,6 +40,7 @@ class VitruvianApp {
     this.setupUnitControls();
     this.resetRepCountersToEmpty();
     this.updateStopButtonState();
+    this.updateTestModeIndicator();
   }
 
   setupLogging() {
@@ -421,6 +422,21 @@ class VitruvianApp {
     }
 
     this.updateStopButtonState();
+    this.updateTestModeIndicator();
+  }
+
+  updateTestModeIndicator() {
+    const testModeBadge = document.getElementById("testModeBadge");
+    if (!testModeBadge) {
+      return;
+    }
+
+    const testMode = this.device.detectTestMode();
+    if (testMode) {
+      testModeBadge.classList.remove("hidden");
+    } else {
+      testModeBadge.classList.add("hidden");
+    }
   }
 
   updateLiveStats(sample) {
@@ -1207,8 +1223,17 @@ class VitruvianApp {
 
   async connect() {
     try {
-      // Check if Web Bluetooth is supported
-      if (!navigator.bluetooth) {
+      // In test mode, bypass Web Bluetooth check to enable UI development
+      const testMode = this.device.detectTestMode();
+      
+      if (testMode) {
+        this.addLogEntry(
+          "TEST MODE: Enabled for UI development (no hardware required)",
+          "info",
+        );
+      }
+      
+      if (!testMode && !navigator.bluetooth) {
         alert(
           "Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera.",
         );
@@ -1218,7 +1243,7 @@ class VitruvianApp {
       await this.device.connect();
       this.updateConnectionStatus(true);
 
-      // Send initialization sequence
+      // Send initialization sequence (works in test mode with mock characteristics)
       await this.device.sendInit();
     } catch (error) {
       console.error("Connection error:", error);

@@ -153,6 +153,7 @@ Implement a **saturating progression/regression limit** in Program Mode without 
   - Build the **planner** and **scheduler** components.
   - Implement the **session controller** that subscribes to safety‑gate events and advances the schedule.
   - Centralize unit conversion and increment rounding; clamp to device bounds.
+  - Reuse the shared input helpers and lifecycle cleanup introduced by the baseline PRs.
   - UI state management: disable/enable fields during run; surface inline errors; feature flag toggle.
 - **device.js**
   - Implement the **safety gate** from telemetry; provide a single‑shot “window ready” event.
@@ -160,7 +161,7 @@ Implement a **saturating progression/regression limit** in Program Mode without 
   - Handle disconnect/reconnect: cache last sent target and resend safely after recovery.
 - **protocol.js**
   - Reuse/confirm the builder for **set weight per cable**.
-  - Ensure rounding/increment constraints are enforced before frame construction.
+  - Ensure rounding/increment constraints are enforced before frame construction, leveraging the protocol validation helpers from `baseline/protocol-input-validation` to enforce range and sequence contracts.
 - **modes.js**
   - Extend Program Mode config to carry `limit` (nullable) alongside `delta`.
   - Expose device min/max and increment constants if not already centralized.
@@ -170,6 +171,7 @@ Implement a **saturating progression/regression limit** in Program Mode without 
 - When Δ<0: limit omitted → allowed; limit provided → must be ≤ start.
 - When Δ=0: limit is ignored; field hidden.
 - All numeric inputs must pass unit normalization, device bounds, and increment quantization checks.
+ - Reuse the protocol validation helpers introduced in the baseline refactor so feature logic stays aligned with enforced bounds and sequence IDs.
 
 ## Observability
 - Log lightweight events (dev console or in‑app debug overlay):

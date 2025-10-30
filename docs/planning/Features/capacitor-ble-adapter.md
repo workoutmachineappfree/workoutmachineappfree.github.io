@@ -5,7 +5,7 @@ Wrap the existing Web Bluetooth app in Capacitor (iOS/Android) and introduce a s
 
 ### Scope and constraints
 - Keep UI (`index.html`, `app.js`, `chart.js`) and protocol builders (`protocol.js`, `modes.js`) unchanged.
-- Replace direct Web Bluetooth in `device.js` with a thin `bleAdapter` abstraction while keeping existing logging, GATT queue, and telemetry/rep logic.
+- Replace direct Web Bluetooth in `device.js` with a thin `bleAdapter` abstraction while keeping existing logging, lifecycle hooks (`onDisconnect`, `removeAllListeners()`), GATT queue, and telemetry/rep logic.
 - Deliver iOS + Android shells via Capacitor with assets bundled offline.
 
 ### Current BLE touch points to adapt
@@ -57,7 +57,7 @@ const value = await this.queueGattOperation(() => this.propertyChar.readValue())
   - web: uses current Web Bluetooth (`navigator.bluetooth`).
   - native: uses Capacitor BLE `BleClient` from `@capacitor-community/bluetooth-le`.
 - Runtime choose backend: `Capacitor?.isNativePlatform()` → native; else web. App continues to work in browsers.
-- Keep `VitruvianDevice` queues, logging, and program logic; only route BLE I/O via adapter.
+- Keep `VitruvianDevice` queues, logging, lifecycle callbacks, and program logic; only route BLE I/O via adapter.
 
 ### Adapter interface (verbs we need)
 - initialize()
@@ -76,7 +76,7 @@ const value = await this.queueGattOperation(() => this.propertyChar.readValue())
 - char.writeValueWithoutResponse → `BleClient.writeWithoutResponse`
 - char.readValue → `BleClient.read`
 - char.startNotifications + event → `BleClient.startNotifications(cb)`
-- gattserverdisconnected → `BleClient.connect(..., onDisconnect)`
+- gattserverdisconnected → `BleClient.connect(..., onDisconnect)` (adapter must fire the same callback `VitruvianDevice` exposes so UI cleanup runs once; polling continues until the callback triggers)
 
 ### File and code edits (minimal-diff)
 1) New files (JS, no build tooling change):
@@ -115,7 +115,7 @@ const value = await this.queueGattOperation(() => this.propertyChar.readValue())
   - `const dev = await BleClient.requestDevice({ filters: [{ namePrefix: 'Vee' }], optionalServices: [NUS_SERVICE_UUID, GATT_SERVICE_UUID] });`
   - `await BleClient.connect(dev.deviceId, () => onDisconnect());`
   - Reads/Writes/Notifications use UUID triplets with `Uint8Array` payloads.
-- Maintain `queueGattOperation` in `device.js`; adapter methods remain async and serializable.
+- Maintain `queueGattOperation` in `device.js`; adapter methods remain async and serializable, and should propagate the richer protocol validation errors surfaced by the baseline refactor so app logging remains consistent.
 
 ### Safety and protocol invariants
 - Do NOT alter frame sizes, offsets, or timing in `protocol.js`.
@@ -144,5 +144,4 @@ const value = await this.queueGattOperation(() => this.propertyChar.readValue())
 - Build and run on devices; verify connect/init/program/stop
 - Run quick and full hardware tests per runbook; capture logs and findings
 - Document mobile build steps, permissions, test notes in README and docs
-
 

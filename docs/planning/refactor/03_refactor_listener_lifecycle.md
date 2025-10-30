@@ -4,7 +4,7 @@
 **Target PR**: `refactor/listener-lifecycle-management`  
 **Estimated Effort**: Low-Medium (1-2 hours)
 
-**Sequence**: This is PR #3 of 4. Depends on PR #2 (Disconnect Handling). Must be done before PR #4 (DRY Cleanup).
+**Sequence**: PR #3 of 4 (Option A — Step 3). Depends on PR #1 (Disconnect Handling). Execute after PR #1 and after/parallel with PR #2 (Protocol Validation). Must precede PR #4 (DRY).
 
 **Synergy**: Adds listener management code to `startProgram()` and `startEcho()` methods. PR #4 will then refactor these same methods using helpers, so doing this first ensures DRY cleanup refactors the complete final version rather than requiring rework.
 
@@ -20,6 +20,8 @@ Currently, `startProgram()` and `startEcho()` add listeners to the device withou
 **Goal**: Store listener references and ensure proper cleanup before adding new listeners, following established lifecycle patterns.
 
 ---
+
+ 
 
 ## Blast Radius
 

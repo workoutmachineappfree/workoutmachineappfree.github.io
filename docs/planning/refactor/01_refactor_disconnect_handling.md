@@ -4,7 +4,7 @@
 **Target PR**: `refactor/disconnect-handling-state-cleanup`  
 **Estimated Effort**: Medium (2-3 hours)
 
-**Sequence**: This is PR #2 of 4. Must be done before PR #3 (Listener Lifecycle).
+**Sequence**: PR #1 of 4 (Option A — Step 1). Must precede PR #3 (Listener Lifecycle). Can run in parallel with PR #2 (Protocol Validation).
 
 **Synergy**: Establishes the cleanup pattern that PR #3 will use. The disconnect handler created here will call listener cleanup when PR #3 is merged, creating a cohesive cleanup flow.
 
@@ -17,6 +17,8 @@ When the Vitruvian device disconnects unexpectedly (low battery, out of range, u
 **Goal**: Ensure app layer receives disconnect notifications and properly cleans up workout state, matching the pattern used in `resetRepCountersToEmpty()`.
 
 ---
+
+ 
 
 ## Blast Radius
 

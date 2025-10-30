@@ -4,7 +4,7 @@
 **Target PR**: `refactor/dry-cleanup-dom-validation`  
 **Estimated Effort**: Medium (2-3 hours)
 
-**Sequence**: This is PR #4 of 4. Should be done last, after PR #3 (Listener Lifecycle).
+**Sequence**: PR #4 of 4 (Option A — Step 4). Execute last after PR #3 (Listener Lifecycle).
 
 **Synergy**: Refactors `startProgram()` and `startEcho()` methods that PR #3 modified. By doing this last, we refactor the complete final version of these methods (including listener management) in one pass, maximizing code quality improvement and avoiding rework.
 
@@ -19,6 +19,13 @@ Codebase has repetitive patterns that violate DRY principle, reducing maintainab
 4. **NaN handling**: Inconsistent `isNaN()` vs `Number.isNaN()` usage
 
 **Goal**: Extract common patterns into reusable helpers, reducing duplication and improving maintainability. Target: Raise DRY score from 3/5 to 5/5.
+
+---
+
+ 
+
+## Scope Constraints
+- Avoid adding a generic `getElement()` helper unless missing elements are handled meaningfully. Prefer direct `getElementById()` until there is actionable behavior for nulls (YAGNI).
 
 ---
 

@@ -1,10 +1,10 @@
 # Implementation Plan: Fail-Fast Protocol Frame Validation
 
-**Priority**: Medium (Defense-in-Depth)  
+**Priority**: High (Safety; can run parallel with Disconnect)  
 **Target PR**: `refactor/protocol-frame-validation`  
 **Estimated Effort**: Low (1 hour)
 
-**Sequence**: This is PR #1 of 4. Can be implemented anytime (independent).
+**Sequence**: PR #2 of 4 (Option A — Step 2). Parallel with PR #1 (Disconnect Handling) or immediately after; independent of other work.
 
 **Synergy**: This PR establishes validation patterns that inform future protocol work. It's independent and can be merged first or last without affecting other refactors.
 
@@ -20,6 +20,8 @@ Protocol frame builders (`buildProgramParams`, `buildEchoControl`, `buildColorSc
 **Goal**: Add explicit frame length validation in protocol builders, throwing clear errors if frame size doesn't match specification. This enforces Fail Fast principle at protocol boundaries.
 
 ---
+
+ 
 
 ## Blast Radius
 

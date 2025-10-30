@@ -67,6 +67,56 @@
                 padding-bottom: 25px;
                 border-bottom: 1px solid #e0e0e0;
             }
+<!-- Exercise Library Section -->
+<div class="section">
+  <h2>Exercise Library 💪</h2>
+  <input type="text" id="exerciseSearch" placeholder="Search exercises..." style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;">
+  <select id="muscleFilter" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;">
+    <option value="all">All Muscles</option>
+    <option value="chest">Chest</option>
+    <option value="back">Back</option>
+    <option value="legs">Legs</option>
+    <option value="shoulders">Shoulders</option>
+    <option value="arms">Arms</option>
+    <option value="core">Core</option>
+  </select>
+  <div id="exerciseList" style="max-height:200px;overflow-y:auto;"></div>
+</div>
+
+<!-- Workout Setup Section -->
+<div class="section">
+  <h2>Workout Setup</h2>
+  <div id="selectedExercise" style="padding:10px;background:#f0f0f0;border-radius:5px;margin-bottom:10px;font-size:0.9em;">Select an exercise above</div>
+  <button id="startWorkoutBtn" style="width:100%;padding:10px;background:#4CAF50;color:white;border:none;border-radius:4px;cursor:pointer;font-weight:bold;">Start Selected Workout</button>
+</div>
+
+<!-- Personal Bests Section -->
+<div class="section">
+  <h2>Personal Bests 🏆</h2>
+  <div id="pbList" style="font-size:0.9em;"></div>
+</div>
+
+<!-- Leaderboard Section -->
+<div class="section">
+  <h2>Leaderboard 🎯</h2>
+  <input type="text" id="userName" placeholder="Your name" style="width:100%;padding:8px;margin-bottom:8px;border:1px solid #ccc;border-radius:4px;">
+  <div id="leaderboardList" style="font-size:0.9em;"></div>
+</div>
+
+<!-- Muscle Heatmap Section -->
+<div class="section">
+  <h2>Muscle Activity Map 🔥</h2>
+  <svg id="muscleHeatmap" viewBox="0 0 400 600" style="width:100%;max-width:300px;margin:10px auto;display:block;">
+    <ellipse id="m-chest" cx="200" cy="150" rx="60" ry="40" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <circle id="m-shoulders-l" cx="140" cy="130" r="25" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <circle id="m-shoulders-r" cx="260" cy="130" r="25" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <ellipse id="m-arms-l" cx="130" cy="190" rx="20" ry="35" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <ellipse id="m-arms-r" cx="270" cy="190" rx="20" ry="35" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <rect id="m-core" x="170" y="200" width="60" height="80" rx="10" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <ellipse id="m-legs-l" cx="170" cy="380" rx="25" ry="70" fill="#ddd" stroke="#333" stroke-width="2"/>
+    <ellipse id="m-legs-r" cx="230" cy="380" rx="25" ry="70" fill="#ddd" stroke="#333" stroke-width="2"/>
+  </svg>
+</div>
 
             .section:last-child {
                 border-bottom: none;

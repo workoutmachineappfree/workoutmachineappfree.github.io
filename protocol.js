@@ -1,5 +1,77 @@
 // protocol.js - BLE protocol frame builders
 
+// Protocol validation constants
+const PROGRAM_MAX_KG = 100.0;
+const PROGRAM_MIN_KG = 0.0;
+const PROGRESSION_MIN_KG = -3.0;
+const PROGRESSION_MAX_KG = 3.0;
+const PROGRAM_MAX_REPS = 100;
+const PROGRAM_MIN_REPS = 1;
+const ECHO_LEVEL_MIN = 0;
+const ECHO_LEVEL_MAX = 3;
+const ECHO_PERCENT_MIN = 0;
+const ECHO_PERCENT_MAX = 150;
+const ECHO_REPS_MIN = 0;
+const ECHO_REPS_MAX = 30;
+const COLOR_BRIGHTNESS_MIN = 0.0;
+const COLOR_BRIGHTNESS_MAX = 1.0;
+const COLOR_CHANNEL_MIN = 0;
+const COLOR_CHANNEL_MAX = 255;
+const COLOR_COUNT_REQUIRED = 3;
+
+// Validation helpers
+function assertRange(value, { min, max, label, unit = "" }) {
+  if (value === null || value === undefined || isNaN(value)) {
+    throw new Error(`${label} is required but missing or invalid`);
+  }
+  if (value < min || value > max) {
+    const unitStr = unit ? ` ${unit}` : "";
+    throw new Error(
+      `${label} ${value}${unitStr} outside valid range ${min}${unitStr}-${max}${unitStr}`
+    );
+  }
+}
+
+function assertEnum(value, allowed, label) {
+  if (!allowed.includes(value)) {
+    throw new Error(
+      `${label} ${value} not in allowed set [${allowed.join(", ")}]`
+    );
+  }
+}
+
+function assertColorArray(colors) {
+  if (!Array.isArray(colors)) {
+    throw new Error(`Color scheme requires an array, received ${typeof colors}`);
+  }
+  if (colors.length !== COLOR_COUNT_REQUIRED) {
+    throw new Error(
+      `Color scheme requires exactly ${COLOR_COUNT_REQUIRED} colors, received ${colors.length}`
+    );
+  }
+  for (let i = 0; i < colors.length; i++) {
+    const color = colors[i];
+    if (!color || typeof color !== "object") {
+      throw new Error(`Color ${i + 1} is not a valid object`);
+    }
+    assertRange(color.r, {
+      min: COLOR_CHANNEL_MIN,
+      max: COLOR_CHANNEL_MAX,
+      label: `Color ${i + 1} red channel`,
+    });
+    assertRange(color.g, {
+      min: COLOR_CHANNEL_MIN,
+      max: COLOR_CHANNEL_MAX,
+      label: `Color ${i + 1} green channel`,
+    });
+    assertRange(color.b, {
+      min: COLOR_CHANNEL_MIN,
+      max: COLOR_CHANNEL_MAX,
+      label: `Color ${i + 1} blue channel`,
+    });
+  }
+}
+
 // Build the initial 4-byte command sent before INIT
 function buildInitCommand() {
   return new Uint8Array([0x0a, 0x00, 0x00, 0x00]);
@@ -47,6 +119,43 @@ function buildInitPreset() {
 
 // Build the 96-byte program parameters frame
 function buildProgramParams(params) {
+  // Validate inputs before building frame
+  assertRange(params.perCableKg, {
+    min: PROGRAM_MIN_KG,
+    max: PROGRAM_MAX_KG,
+    label: "Program perCableKg",
+    unit: "kg",
+  });
+
+  assertRange(params.effectiveKg, {
+    min: PROGRAM_MIN_KG + 10.0,
+    max: PROGRAM_MAX_KG + 10.0,
+    label: "Program effectiveKg",
+    unit: "kg",
+  });
+
+  if (params.progressionKg !== undefined && params.progressionKg !== null) {
+    assertRange(params.progressionKg, {
+      min: PROGRESSION_MIN_KG,
+      max: PROGRESSION_MAX_KG,
+      label: "Program progressionKg",
+      unit: "kg",
+    });
+  }
+
+  if (!params.isJustLift) {
+    assertRange(params.reps, {
+      min: PROGRAM_MIN_REPS,
+      max: PROGRAM_MAX_REPS,
+      label: "Program reps",
+    });
+  }
+
+  // Validate mode is valid (0-4 based on ProgramMode enum)
+  const validModes = [0, 1, 2, 3, 4];
+  const modeToCheck = params.isJustLift ? params.baseMode : params.mode;
+  assertEnum(modeToCheck, validModes, "Program mode");
+
   const frame = new Uint8Array(96);
   const buffer = frame.buffer;
   const view = new DataView(buffer);
@@ -120,6 +229,38 @@ function buildProgramParams(params) {
 
 // Build Echo mode control frame (32 bytes)
 function buildEchoControl(params) {
+  // Validate inputs before building frame
+  assertRange(params.level, {
+    min: ECHO_LEVEL_MIN,
+    max: ECHO_LEVEL_MAX,
+    label: "Echo level",
+  });
+
+  assertRange(params.eccentricPct, {
+    min: ECHO_PERCENT_MIN,
+    max: ECHO_PERCENT_MAX,
+    label: "Echo eccentricPct",
+    unit: "%",
+  });
+
+  if (params.warmupReps !== undefined && params.warmupReps !== null) {
+    assertRange(params.warmupReps, {
+      min: ECHO_REPS_MIN,
+      max: ECHO_REPS_MAX,
+      label: "Echo warmupReps",
+    });
+  }
+
+  if (!params.isJustLift) {
+    if (params.targetReps !== undefined && params.targetReps !== null) {
+      assertRange(params.targetReps, {
+        min: ECHO_REPS_MIN,
+        max: ECHO_REPS_MAX,
+        label: "Echo targetReps",
+      });
+    }
+  }
+
   const frame = new Uint8Array(32);
   const buffer = frame.buffer;
   const view = new DataView(buffer);
@@ -169,6 +310,15 @@ function buildEchoControl(params) {
 
 // Build a 34-byte color scheme packet
 function buildColorScheme(brightness, colors) {
+  // Validate inputs before building frame
+  assertRange(brightness, {
+    min: COLOR_BRIGHTNESS_MIN,
+    max: COLOR_BRIGHTNESS_MAX,
+    label: "Color scheme brightness",
+  });
+
+  assertColorArray(colors);
+
   const frame = new Uint8Array(34);
   const buffer = frame.buffer;
   const view = new DataView(buffer);

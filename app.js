@@ -48,6 +48,10 @@ class VitruvianApp {
     this.device.onLog = (message, type) => {
       this.addLogEntry(message, type);
     };
+
+    this.device.onDisconnect = () => {
+      this.handleDeviceDisconnect();
+    };
   }
 
   setupChart() {
@@ -755,7 +759,14 @@ class VitruvianApp {
     }
   }
 
+  removeAllListeners() {
+    if (this.device && typeof this.device.removeAllListeners === "function") {
+      this.device.removeAllListeners();
+    }
+  }
+
   resetRepCountersToEmpty() {
+    this.removeAllListeners();
     this.warmupReps = 0;
     this.workingReps = 0;
     this.currentWorkout = null;
@@ -839,6 +850,7 @@ class VitruvianApp {
 
   completeWorkout() {
     if (this.currentWorkout) {
+      this.removeAllListeners();
       // Set end time
       const endTime = new Date();
       this.currentWorkout.endTime = endTime;
@@ -1262,12 +1274,20 @@ class VitruvianApp {
     }
   }
 
+  handleDeviceDisconnect() {
+    this.addLogEntry("Device disconnected. Clearing workout state.", "info");
+    this.removeAllListeners();
+    this.resetRepCountersToEmpty();
+    this.updateConnectionStatus(false);
+  }
+
   async stopWorkout() {
     try {
       await this.device.sendStopCommand();
       this.addLogEntry("Workout stopped by user", "info");
 
       // Complete the workout and save to history
+      this.removeAllListeners();
       this.completeWorkout();
     } catch (error) {
       console.error("Stop workout error:", error);

@@ -237,13 +237,11 @@ When automating UI interactions without hardware, use test mode to bypass Web Bl
 ## Agent Checklist: Remember Your Core Principles
 
 Before making any changes, verify:
-- [ ] **Impact Analysis**: First-order (immediate), second-order (adjacent systems), third-order (systemic) effects identified and presented
-- [ ] **Core Principles**: Orthogonality, SoC, KISS, YAGNI maintained (or explicitly noted if trade-off required)
-- [ ] **Communication**: What-Why-Value framework used; assumptions stated explicitly
-- [ ] **Approach Validated**: Plan aligned with user before implementing non-trivial changes
+- ✅ **Impact Analysis**: First-order (immediate), second-order (adjacent systems), third-order (systemic) effects identified and presented
+  - Every change request should include concise impact analysis (first/second/third-order effects) before implementation begins.
+- ✅ **Core Principles**: Orthogonality, SoC, KISS, YAGNI maintained (or explicitly noted if trade-off required)
+- ✅ **Communication**: What-Why-Value framework used; assumptions stated explicitly
+- ✅ **Approach Validated**: Plan aligned with user before implementing non-trivial changes
 
-**When in doubt**: Return to lines 5-22. The principles there override any project-specific detail below.
-
-**Impact Analysis is automatic**: Every change request should include concise impact analysis (first/second/third-order effects) before implementation begins.
-
-<END>
+**When in doubt**: Return to lines 5-22.
+</END>

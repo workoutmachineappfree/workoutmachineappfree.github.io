@@ -11,6 +11,8 @@ Keep your Vitruvian Trainer usable without company servers. This project is a li
 - README.md — TL;DR, quick start, and links
 - docs/SITUATION-BRIEF.md — background and minimal technical summary
 - AGENTS.md — operating guidance for AI agents and developers
+- docs/API-MAP.md — API reference, event flow, data structures
+- docs/DEPENDENCY-MAP.md — dependencies, modules, browser APIs
 
 ## What works today
 - Connect via Web Bluetooth and control workout modes:

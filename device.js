@@ -32,11 +32,13 @@ class VitruvianDevice {
     this.propertyInterval = null;
     this.monitorInterval = null;
     this.onLog = null; // Callback for logging
+    this.onDisconnect = null; // Callback fired after disconnect cleanup
     this.propertyListeners = [];
     this.repListeners = [];
     this.monitorListeners = [];
     this.lastGoodPosA = 0;
     this.lastGoodPosB = 0;
+    this._disconnectNotified = false;
 
     // GATT operation queue to prevent "operation already in progress" errors
     this.gattQueue = [];
@@ -172,6 +174,7 @@ class VitruvianDevice {
         this.log("TEST MODE: Mock characteristics initialized", "success");
         // Simulate successful connection
         this.isConnected = true;
+        this._disconnectNotified = false;
         this.log("TEST MODE: Connected (simulated)", "success");
         return true;
       }
@@ -237,6 +240,7 @@ class VitruvianDevice {
       await this.enableCoreNotifications();
 
       this.isConnected = true;
+      this._disconnectNotified = false;
       this.log("Device ready!", "success");
 
       return true;
@@ -628,15 +632,48 @@ class VitruvianDevice {
     }
   }
 
+  // Remove all registered listeners to avoid duplicate telemetry callbacks
+  removeAllListeners() {
+    const propertyCount = this.propertyListeners.length;
+    const monitorCount = this.monitorListeners.length;
+    const repCount = this.repListeners.length;
+
+    this.propertyListeners = [];
+    this.monitorListeners = [];
+    this.repListeners = [];
+
+    if (propertyCount || monitorCount || repCount) {
+      this.log(
+        `Cleared listeners (property=${propertyCount}, monitor=${monitorCount}, rep=${repCount})`,
+        "info",
+      );
+    }
+  }
+
   // Handle disconnection
   handleDisconnect() {
+    const shouldNotify = !this._disconnectNotified;
+
     this.isConnected = false;
     this.stopPropertyPolling();
     this.stopMonitorPolling();
+    this.removeAllListeners();
     this.rxChar = null;
     this.monitorChar = null;
     this.propertyChar = null;
     this.repNotifyChar = null;
+    this.server = null;
+
+    if (shouldNotify) {
+      this._disconnectNotified = true;
+      if (typeof this.onDisconnect === "function") {
+        try {
+          this.onDisconnect();
+        } catch (error) {
+          this.log(`Disconnect callback failed: ${error.message}`, "error");
+        }
+      }
+    }
   }
 
   // Disconnect from device

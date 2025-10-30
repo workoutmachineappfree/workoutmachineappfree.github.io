@@ -1,0 +1,1 @@
+/Users/jstar/Projects/vitruvian/workoutmachineappfree.github.io/AGENTS.md
